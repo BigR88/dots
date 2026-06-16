@@ -1,5 +1,7 @@
 // Domain-Typen, spiegeln das DB-Schema (§5 Blueprint).
 
+import type { ExtractedEvent } from './extraction';
+
 export type EventStatus =
   | 'draft'
   | 'pending_review'
@@ -90,4 +92,35 @@ export interface DotsEvent {
 
   popularityScore: number;
   favoritesCount: number;
+}
+
+// ── KI-Import-Agent (§6) ─────────────────────────────────────────────────────
+
+export type CandidateStatus = 'pending' | 'approved' | 'rejected' | 'duplicate';
+
+/** Eine vom Nutzer gepflegte Quelle, aus der der Agent Events zieht. */
+export interface EventSource {
+  id: string;
+  type: SourceType;
+  name: string | null;
+  url: string | null;
+  organizerId: string | null;
+  isTrusted: boolean;
+  createdAt: string;
+}
+
+/** Ein extrahiertes Event in der Review-Queue, bevor es zum Event promoted wird. */
+export interface ImportedEventCandidate {
+  id: string;
+  sourceId: string | null;
+  status: CandidateStatus;
+  rawInput: string | null;
+  rawImagePath: string | null;
+  extracted: ExtractedEvent;
+  confidenceScore: number;
+  possibleDuplicateOf: string | null;
+  missingFields: string[];
+  reviewNote: string | null;
+  promotedEventId: string | null;
+  createdAt: string;
 }

@@ -18,6 +18,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </Link>
           <nav className="nav">
             <Link href="/">Events</Link>
+            <Link href="/candidates">KI-Import</Link>
+            <Link href="/sources">Quellen</Link>
             <Link href="/events/new" className="btn btn-primary">
               + Neues Event
             </Link>

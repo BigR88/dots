@@ -1,4 +1,4 @@
-import type { DotsEvent, EventStatus } from '@dots/shared';
+import type { CandidateStatus, DotsEvent, EventStatus } from '@dots/shared';
 
 export const STATUS_LABELS: Record<EventStatus, string> = {
   draft: 'Entwurf',
@@ -7,6 +7,34 @@ export const STATUS_LABELS: Record<EventStatus, string> = {
   archived: 'Archiviert',
   rejected: 'Abgelehnt',
 };
+
+export const CANDIDATE_STATUS_LABELS: Record<CandidateStatus, string> = {
+  pending: 'Zu prüfen',
+  approved: 'Übernommen',
+  rejected: 'Abgelehnt',
+  duplicate: 'Duplikat',
+};
+
+/** Konfidenz-Stufe für Farbcodierung (high/mid/low). */
+export function confidenceTier(score: number): 'high' | 'mid' | 'low' {
+  if (score >= 0.8) return 'high';
+  if (score >= 0.5) return 'mid';
+  return 'low';
+}
+
+/** Datum+Startzeit eines Kandidaten (aus extracted) hübsch darstellen. */
+export function formatCandidateWhen(date: string, startTime: string): string {
+  if (!date) return '—';
+  const d = new Date(`${date}T${startTime || '00:00'}:00`);
+  if (Number.isNaN(d.getTime())) return `${date}${startTime ? ` ${startTime}` : ''}`;
+  const datePart = new Intl.DateTimeFormat('de-DE', {
+    weekday: 'short',
+    day: '2-digit',
+    month: 'short',
+    timeZone: 'Europe/Berlin',
+  }).format(d);
+  return startTime ? `${datePart} · ${startTime}` : datePart;
+}
 
 const dateFmt = new Intl.DateTimeFormat('de-DE', {
   weekday: 'short',
