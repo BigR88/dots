@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
+import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { LayoutAnimation, Platform, Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
@@ -134,8 +135,20 @@ export default function MapScreen() {
         style={[styles.topOverlay, { paddingTop: insets.top + 6 }]}
         onLayout={(e) => setTopH(e.nativeEvent.layout.height)}
         pointerEvents="box-none">
-        {/* Dunkle, schwebende Box — gleicher Look wie die Tab-Bar unten */}
-        <View style={[styles.panel, { backgroundColor: t.colors.surface, borderColor: t.colors.border }]}>
+        {/* Durchscheinende, schwebende Box — Milchglas, die Karte bleibt sichtbar */}
+        <View style={[styles.panel, { borderColor: t.colors.border }]}>
+          <BlurView
+            intensity={32}
+            tint={t.scheme === 'dark' ? 'dark' : 'light'}
+            style={StyleSheet.absoluteFill}
+          />
+          <View
+            pointerEvents="none"
+            style={[
+              StyleSheet.absoluteFill,
+              { backgroundColor: t.scheme === 'dark' ? 'rgba(23,24,28,0.45)' : 'rgba(255,255,255,0.55)' },
+            ]}
+          />
           <FloatingMapHeader searchOpen={open} hasActiveFilters={hasActive} onSearch={toggleOpen} />
           <TimeTabs separate value={tab} onChange={setTab} />
         </View>
@@ -207,6 +220,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     gap: 10,
+    overflow: 'hidden',
     ...(Platform.select({
       web: { boxShadow: '0 16px 36px rgba(0,0,0,0.5)' } as unknown as ViewStyle,
       default: {

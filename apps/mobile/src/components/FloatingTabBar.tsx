@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Platform, Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
@@ -52,15 +53,20 @@ export function FloatingTabBar({ state, descriptors, navigation }: TabBarProps) 
   return (
     <View style={[styles.wrap, { bottom: insets.bottom + 8 }]} pointerEvents="box-none">
       <View style={[dark ? styles.shadowDark : styles.shadow, { borderRadius: 30 }]}>
-        <View
-          style={[
-            styles.bar,
-            {
-              // Voll deckend + sichtbare Kante: über der Satellitenkarte muss die Leiste klar lesbar sein.
-              backgroundColor: t.colors.surface,
-              borderColor: t.colors.border,
-            },
-          ]}>
+        <View style={[styles.bar, { borderColor: t.colors.border }]}>
+          {/* Milchglas: durchscheinend, die Karte/Inhalt scheint dezent durch */}
+          <BlurView
+            intensity={32}
+            tint={dark ? 'dark' : 'light'}
+            style={StyleSheet.absoluteFill}
+          />
+          <View
+            pointerEvents="none"
+            style={[
+              StyleSheet.absoluteFill,
+              { backgroundColor: dark ? 'rgba(23,24,28,0.45)' : 'rgba(255,255,255,0.55)' },
+            ]}
+          />
           {state.routes.map((route, index) => {
             const focused = state.index === index;
             const { options } = descriptors[route.key];
