@@ -38,19 +38,25 @@ export const QUICK_FILTERS: QuickFilterDef[] = [
   { id: 'near_me', label: 'Nähe', icon: 'location' },
 ];
 
-export type TimeTabId = 'today' | 'tomorrow' | 'weekend' | 'trending';
+/**
+ * Bereich „Nächste 7 Tage" (heute bis einschließlich +6 Tage). Bewusst NICHT
+ * „Alle Tage", weil das unendlich klingt.
+ */
+export const NEXT_7_DAYS = 'next7' as const;
 
-export interface TimeTabDef {
-  id: TimeTabId;
-  label: string;
-}
+/**
+ * Spezial-Sortierung „Beliebt". Bewusst KEIN Datumstab — bleibt im Code für
+ * eine spätere eigene Section („Beliebt diese Woche"), erscheint aber nicht in
+ * der Hauptdatumsleiste neben Heute/Morgen.
+ */
+export const TRENDING = 'trending' as const;
 
-export const TIME_TABS: TimeTabDef[] = [
-  { id: 'today', label: 'Heute' },
-  { id: 'tomorrow', label: 'Morgen' },
-  { id: 'weekend', label: 'Wochenende' },
-  { id: 'trending', label: 'Trending' },
-];
+/**
+ * Auswahl im Datumsfilter: ein konkreter Tag als ISO-Datum `'YYYY-MM-DD'`,
+ * der Bereich `'next7'` (Nächste 7 Tage) oder die Sortierung `'trending'`.
+ * Datum = wann, getrennt von Kategorie (was) und Beliebtheit (Ranking).
+ */
+export type TimeValue = typeof NEXT_7_DAYS | typeof TRENDING | (string & {});
 
 export type SortId = 'date' | 'distance' | 'popularity' | 'price';
 

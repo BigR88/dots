@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import { useTheme } from '@/theme/theme';
 
@@ -14,8 +13,8 @@ interface Props {
 }
 
 /**
- * Primäre Aktion im Marken-Look: lebendiger Lila→Magenta-Verlauf mit Glanz.
- * Deaktiviert = ruhige Fläche.
+ * Primäre Aktion im Marken-Look: solides Lila (ruhig, ohne Verlauf/Glanz).
+ * Deaktiviert = neutrale Fläche.
  */
 export function PrimaryButton({ label, onPress, leftIcon, rightIcon, disabled, busy, style }: Props) {
   const t = useTheme();
@@ -41,13 +40,9 @@ export function PrimaryButton({ label, onPress, leftIcon, rightIcon, disabled, b
   return (
     <Pressable onPress={onPress} disabled={busy} style={style}>
       {({ pressed }) => (
-        <LinearGradient
-          colors={t.gradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={[styles.btn, pressed && { opacity: 0.9 }]}>
+        <View style={[styles.btn, { backgroundColor: t.accent }, pressed && { opacity: 0.9 }]}>
           {content}
-        </LinearGradient>
+        </View>
       )}
     </Pressable>
   );

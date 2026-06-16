@@ -66,13 +66,13 @@ const styles = StyleSheet.create({
   highlight: { position: 'absolute', top: 0, left: 0, right: 0, height: 1 },
   shadow: {
     ...Platform.select({
-      web: { boxShadow: '0 18px 40px rgba(17,24,39,0.12)' } as unknown as ViewStyle,
+      web: { boxShadow: '0 1px 2px rgba(17,17,20,0.04)' } as unknown as ViewStyle,
       default: {
-        shadowColor: '#1F2A44',
-        shadowOpacity: 0.16,
-        shadowRadius: 24,
-        shadowOffset: { width: 0, height: 14 },
-        elevation: 8,
+        shadowColor: '#111114',
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+        shadowOffset: { width: 0, height: 1 },
+        elevation: 1,
       },
     }),
   },

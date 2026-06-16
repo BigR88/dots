@@ -1,35 +1,46 @@
 // Design-Tokens (§7.4 Blueprint). Single source of truth fürs Branding.
 //
-// Designsprache „editorial minimal": viel Weißraum, Hairline-Trennlinien,
-// Ink-Schwarz für primäre Aktionen, Akzent-Violett nur für Marken-Momente
-// (Brand-Dot, Links, aktive Map-Pins). Kategorie-Farben erscheinen nur noch
-// als kleine Flächen (Icon-Tiles, Pins), nie als große Blöcke.
+// Designsprache „premium minimal" (Trade-Republic-Ruhe): viel Weißraum,
+// fast-schwarze Schrift, neutrale Grautöne, EIN kräftiger Lila-Akzent.
+// Keine Regenbogen-Verläufe, keine bunten Blöcke — Farbe nur als Akzent.
 
 export const palette = {
+  /** Marken-Lila (dots.-Punkt). Einziger Farbakzent: Buttons, Tabs, aktive Pins. */
   accent: '#6C5CFF',
   accentMuted: '#9B8CFF',
-  /** Zweitfarbe für Akzente/Verläufe (Blau). */
+  /** Zweitfarbe (Blau) — nur noch selten, z. B. Karten-Akzente. */
   accentBlue: '#3B82F6',
-  /** Premium-Marken-Verlauf (Violett → Blau) für primäre Aktionen/Glas. */
-  gradient: ['#6C5CFF', '#3B82F6'] as [string, string],
+  /** Dezenter Mono-Lila-Verlauf (liest sich wie eine ruhige Vollfläche). */
+  gradient: ['#6C5CFF', '#7A6BFF'] as [string, string],
   success: '#20C978',
   danger: '#FF3B5C',
+  /**
+   * Lila-Skala (hell → dunkel) für die Map-Pins: Beliebtheit wird NICHT über
+   * bunte Kategorie-Farben gezeigt, sondern über Intensität in einem Lila-Ton.
+   * Index 0 = wenig beliebt (hell), Index 4 = sehr beliebt (kräftig/dunkel).
+   */
+  purpleScale: ['#C9C1FF', '#A99CFF', '#8B7BFF', '#6C5CFF', '#4F3FD6'] as const,
   light: {
-    background: '#F7F8FC',
+    /** Sehr helles, neutrales Grau — luftiger Hintergrund. */
+    background: '#F7F7F9',
     surface: '#FFFFFF',
-    surfaceElevated: '#EEF0F8',
-    border: '#E6E8F2',
-    textPrimary: '#111827',
+    surfaceElevated: '#F1F1F4',
+    /** Feine Hairline-Border für Karten. */
+    border: '#EAEAEF',
+    /** Fast-schwarz für Titel/Primärtext. */
+    textPrimary: '#111114',
     textSecondary: '#6B7280',
     textMuted: '#9AA1AE',
     /** Primäre Buttons/CTAs (im Dark-Scheme invertiert). */
-    ink: '#111827',
+    ink: '#111114',
     /** Text/Icons auf `ink`. */
     onInk: '#FFFFFF',
-    /** „Liquid Glass": halbtransparente Kartenfläche + feine Lichtkante. */
-    cardGlass: 'rgba(255,255,255,0.62)',
-    glassBorder: 'rgba(255,255,255,0.70)',
-    glassHighlight: 'rgba(255,255,255,0.55)',
+    /** Karten: nahezu deckendes Weiß (clean statt Milchglas). */
+    cardGlass: 'rgba(255,255,255,0.94)',
+    /** Dezente, dunkle Hairline statt heller Glas-Kante. */
+    glassBorder: 'rgba(17,17,20,0.06)',
+    /** Keine Glanzkante mehr — flacher, ruhiger Look. */
+    glassHighlight: 'transparent',
   },
   dark: {
     background: '#0B0B0F',

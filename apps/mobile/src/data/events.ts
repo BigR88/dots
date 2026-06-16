@@ -1,16 +1,18 @@
-import type { DotsEvent, GeoPoint, SortId, TimeTabId, QuickFilterId } from '@dots/shared';
-import { FIXTURE_EVENTS, geoPointFromPostgis } from '@dots/shared';
-import { rangeForTab } from '@/lib/time';
+import type { DotsEvent, GeoPoint, SortId, TimeValue, QuickFilterId } from '@dots/shared';
+import { FIXTURE_EVENTS, geoPointFromPostgis, TRENDING } from '@dots/shared';
+import { rangeForTime } from '@/lib/time';
 import { isFree, isUnder20 } from '@/lib/format';
 import { distanceMeters } from '@/lib/geo';
 import { fetchSocialStats } from './social';
 import { isSupabaseConfigured, supabase } from './supabase';
+import { buildTestEvents } from './test-events';
 
 // Radius für den "Nähe zu mir"-Schnellfilter (§2.1 M7).
 const NEAR_ME_RADIUS_M = 3000;
 
 export interface EventQuery {
-  tab: TimeTabId;
+  /** Zeit-Auswahl: 'trending' ('Beliebt') oder ein ISO-Tag 'YYYY-MM-DD'. */
+  time: TimeValue;
   categorySlug: string | null;
   quickFilters: QuickFilterId[];
   sort: SortId;
@@ -22,7 +24,7 @@ export interface EventQuery {
 
 // ── Filter/Sort (geteilt zwischen Supabase- und Fixtures-Pfad) ──────────────
 function applyFilters(events: DotsEvent[], q: EventQuery): DotsEvent[] {
-  const { from, to } = rangeForTab(q.tab);
+  const { from, to } = rangeForTime(q.time);
   const origin = q.origin ?? null;
   const needle = q.search?.trim().toLowerCase() ?? '';
   let out = events.filter((e) => {
@@ -73,8 +75,8 @@ function applyFilters(events: DotsEvent[], q: EventQuery): DotsEvent[] {
     }
   });
 
-  // Im Trending-Tab immer nach Beliebtheit, sofern nicht explizit anders sortiert.
-  if (q.tab === 'trending' && q.sort === 'date') {
+  // Im Beliebt-Modus immer nach Beliebtheit, sofern nicht explizit anders sortiert.
+  if (q.time === TRENDING && q.sort === 'date') {
     out = [...out].sort((a, b) => b.popularityScore - a.popularityScore);
   }
   return out;
@@ -162,12 +164,14 @@ async function fetchPublished(): Promise<DotsEvent[]> {
 
 // ── Öffentliche API ─────────────────────────────────────────────────────────
 export async function listEvents(q: EventQuery): Promise<DotsEvent[]> {
-  const base = isSupabaseConfigured ? await fetchPublished() : FIXTURE_EVENTS;
+  const fetched = isSupabaseConfigured ? await fetchPublished() : FIXTURE_EVENTS;
+  // Clientseitige Test-Events dazumischen (Demo; keine DB-Schreibvorgänge).
+  const base = [...fetched, ...buildTestEvents()];
   const out = applyFilters(base, q);
 
   // Trending live: nach echtem Trend-Score (Zusagen×5 + Klicks/7T) ordnen,
   // solange der Nutzer nicht explizit anders sortiert hat.
-  if (q.tab === 'trending' && q.sort === 'date' && isSupabaseConfigured) {
+  if (q.time === TRENDING && q.sort === 'date' && isSupabaseConfigured) {
     try {
       const { trend } = await fetchSocialStats();
       return [...out].sort(
@@ -184,7 +188,8 @@ export async function listEvents(q: EventQuery): Promise<DotsEvent[]> {
 /** Events zu einer ID-Liste (Favoriten), chronologisch sortiert. */
 export async function listEventsByIds(ids: readonly string[]): Promise<DotsEvent[]> {
   if (ids.length === 0) return [];
-  const base = isSupabaseConfigured ? await fetchPublished() : FIXTURE_EVENTS;
+  const fetched = isSupabaseConfigured ? await fetchPublished() : FIXTURE_EVENTS;
+  const base = [...fetched, ...buildTestEvents()];
   const wanted = new Set(ids);
   return base
     .filter((e) => wanted.has(e.id))
@@ -192,6 +197,8 @@ export async function listEventsByIds(ids: readonly string[]): Promise<DotsEvent
 }
 
 export async function getEventById(id: string): Promise<DotsEvent | null> {
+  // Test-Events liegen nicht in der DB — direkt auflösen.
+  if (id.startsWith('test-')) return buildTestEvents().find((e) => e.id === id) ?? null;
   if (isSupabaseConfigured && supabase) {
     const { data, error } = await supabase
       .from('events')

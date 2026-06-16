@@ -142,7 +142,7 @@ export default function ProfileScreen() {
           <NextPlanCard
             event={nextEvent}
             onOpen={(id) => router.push(`/event/${id}`)}
-            onDiscover={() => router.navigate('/')}
+            onDiscover={() => router.navigate('/discover')}
           />
         </View>
 

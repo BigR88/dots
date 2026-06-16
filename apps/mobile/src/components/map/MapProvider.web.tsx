@@ -1,33 +1,23 @@
 import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import type { DotsEvent, GeoPoint } from '@dots/shared';
 import { FRANKFURT_CENTER } from '@/lib/geo';
 import type { MapProviderProps } from './MapProvider';
 
 /**
- * MapProvider (Web) — echte Satelliten-Weltkarte via Leaflet.
- *
- * Leaflet wird bewusst erst zur Laufzeit per CDN nachgeladen (kein top-level
- * import): die Lib greift beim Import auf `window`/`document` zu, was Expos
- * Web-SSR sonst sprengen würde. Satelliten-Kacheln kommen von Esri World
- * Imagery (frei, kein Token), plus eine dezente Beschriftungs-Ebene.
+ * MapProvider (Web) — echte Satelliten-Weltkarte via Leaflet (per CDN zur
+ * Laufzeit geladen, sonst sprengt der window-Zugriff Expos Web-SSR). Zeigt EINEN
+ * Pin pro Standort: Farbe = Kategorie, Größe = Beliebtheit, Zahl = Anzahl Events.
  */
 
 const LEAFLET_VERSION = '1.9.4';
 const LEAFLET_CSS = `https://unpkg.com/leaflet@${LEAFLET_VERSION}/dist/leaflet.css`;
 const LEAFLET_JS = `https://unpkg.com/leaflet@${LEAFLET_VERSION}/dist/leaflet.js`;
-// Die App fokussiert (vorerst) Frankfurt + nahen Umkreis: Start-Zoom auf die
-// Stadt, kein Heraus­zoomen zur Weltkarte, Pan begrenzt auf die Region.
 const FRANKFURT_ZOOM = 12.5;
 const FRANKFURT_BOUNDS: [[number, number], [number, number]] = [
-  [49.85, 8.3], // Süd-West (Richtung Darmstadt/Mainz)
-  [50.4, 9.05], // Nord-Ost (Richtung Bad Homburg/Hanau)
+  [49.85, 8.3],
+  [50.4, 9.05],
 ];
 
-// Event-Pins bewusst klein halten — kleiner als der Standortpunkt (Kern 14px)
-// zur besseren Unterscheidung.
-const PIN_SIZE = 10;
-const PIN_SIZE_SEL = 14;
 const SAT_TILES =
   'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
 const LABEL_TILES =
@@ -71,13 +61,13 @@ function loadLeaflet(): Promise<any> {
   return leafletPromise;
 }
 
-// Eigene Marker-/Standort-Styles (Glanz-Punkt im „dots"-Look + Puls).
 function injectMarkerStyles() {
   if (document.getElementById(STYLE_ID)) return;
   const style = document.createElement('style');
   style.id = STYLE_ID;
   style.textContent = `
-    .dots-pin { border-radius: 50%; transition: transform .12s ease; }
+    .dots-pin { border-radius:50%; display:flex; align-items:center; justify-content:center;
+      transition: transform .12s ease; }
     .dots-user { width: 22px; height: 22px; }
     .dots-user::before { content:''; position:absolute; inset:0; border-radius:50%;
       background: rgba(108,92,255,.35); animation: dots-pulse 1.8s ease-out infinite; }
@@ -90,51 +80,40 @@ function injectMarkerStyles() {
   document.head.appendChild(style);
 }
 
-// Dunklerer Ton derselben Farbe (für den Ring um den Punkt).
-function darken(hex: string, f: number): string {
-  const h = hex.replace('#', '');
-  const full = h.length === 3 ? h.split('').map((c) => c + c).join('') : h;
-  const n = parseInt(full, 16);
-  const r = Math.round(((n >> 16) & 255) * f);
-  const g = Math.round(((n >> 8) & 255) * f);
-  const b = Math.round((n & 255) * f);
-  return '#' + [r, g, b].map((x) => x.toString(16).padStart(2, '0')).join('');
+// Größe bewusst zierlich: ein einzelnes Event = kleiner Punkt; mehrere am
+// Standort = etwas größer + Zahl. Beliebtere Locations minimal größer.
+function pinSize(intensity: number, count: number, selected: boolean): number {
+  const base =
+    count > 1 ? 20 + Math.min(count, 6) * 2 + Math.round(intensity * 4) : 11 + Math.round(intensity * 6);
+  return selected ? base + 3 : base;
 }
 
-// Durchscheinende „Zone" um den Punkt: wächst & wird intensiver mit der Zahl
-// der Zusagen (count). Gedeckelt, damit sehr beliebte Events nicht alles fluten.
-function zoneDiameter(size: number, count: number): number {
-  return size + 18 + Math.min(count, 14) * 4;
-}
-function zoneAlphaHex(count: number): string {
-  const a = Math.min(0.55, 0.18 + Math.min(count, 14) * 0.035);
-  return Math.round(a * 255).toString(16).padStart(2, '0');
-}
-
-function pinHtml(color: string, selected: boolean, count: number): string {
-  const size = selected ? PIN_SIZE_SEL : PIN_SIZE;
-  const dark = darken(color, 0.55); // Ring = dunklerer Ton derselben Farbe
-  const ringW = selected ? 3 : 2;
-  const zone = zoneDiameter(size, count);
-  const alpha = zoneAlphaHex(count);
-  return `<div style="width:${zone}px;height:${zone}px;border-radius:50%;background:${color}${alpha};display:flex;align-items:center;justify-content:center;">
-    <div class="dots-pin${selected ? ' dots-pin--sel' : ''}" style="width:${size}px;height:${size}px;background:${color};box-shadow:0 0 0 ${ringW}px ${dark};"></div>
-  </div>`;
+// Keine weiße Umrandung — stattdessen ein farbiges Leuchten (Glow) in der
+// Kategorie-Farbe, damit die Pins kräftig „leuchten".
+function pinHtml(color: string, intensity: number, count: number, selected: boolean): string {
+  const s = pinSize(intensity, count, selected);
+  const num =
+    count > 1
+      ? `<span style="color:#fff;font-weight:800;font-size:${Math.max(10, Math.round(s * 0.5))}px;">${count}</span>`
+      : '';
+  const glow = selected
+    ? `0 0 16px ${color},0 0 6px ${color},0 1px 4px rgba(0,0,0,.45)`
+    : `0 0 9px ${color}cc,0 1px 3px rgba(0,0,0,.3)`;
+  return `<div class="dots-pin" style="width:${s}px;height:${s}px;background:${color};box-shadow:${glow};">${num}</div>`;
 }
 
 export function MapProvider({
-  events,
+  markers,
   userLocation,
-  selectedId,
-  onSelectEvent,
+  selectedKey,
+  onSelectMarker,
   focus,
-  attendance,
 }: MapProviderProps) {
   const mapRef = useRef<any>(null);
   const markersRef = useRef<any>(null);
   const userRef = useRef<any>(null);
-  const onSelectRef = useRef(onSelectEvent);
-  onSelectRef.current = onSelectEvent;
+  const onSelectRef = useRef(onSelectMarker);
+  onSelectRef.current = onSelectMarker;
   const [ready, setReady] = useState(false);
   const lastFocus = useRef(0);
 
@@ -149,12 +128,7 @@ export function MapProvider({
         if (!el || (el as any)._leaflet_id) return;
         const map = L.map(el, {
           zoomControl: false,
-          // Keine Attribution-Leiste (inkl. Leaflet-/Ukraine-Flaggen-Prefix) für den
-          // cleanen, immersiven Look. Hinweis: Für Produktion einen dezenten
-          // „© Esri"-Credit wieder einblenden (Esri-Nutzungsbedingungen).
           attributionControl: false,
-          // App ist (vorerst) Frankfurt-only: nicht zur Weltkarte heraus­zoomen
-          // und Pan an die Region binden.
           minZoom: 11,
           maxZoom: 19,
           maxBounds: FRANKFURT_BOUNDS,
@@ -168,7 +142,6 @@ export function MapProvider({
 
         mapRef.current = map;
         markersRef.current = L.layerGroup().addTo(map);
-        // Container-Größe steht im iPhone-Frame manchmal erst nach einem Tick.
         setTimeout(() => map.invalidateSize(), 60);
         setReady(true);
       })
@@ -182,44 +155,41 @@ export function MapProvider({
     };
   }, []);
 
-  // Event-Pins neu aufbauen.
+  // Standort-Pins (Venue-Gruppen) neu aufbauen.
   useEffect(() => {
     const L = window.L;
     const group = markersRef.current;
     if (!ready || !L || !group) return;
     group.clearLayers();
-    events.forEach((ev) => {
-      if (!ev.location) return;
-      const selected = ev.id === selectedId;
-      const size = selected ? PIN_SIZE_SEL : PIN_SIZE;
-      const count = attendance?.[ev.id] ?? 0;
-      const zone = zoneDiameter(size, count);
+    markers.forEach((m) => {
+      const selected = m.key === selectedKey;
+      const size = pinSize(m.intensity, m.count, selected);
       const icon = L.divIcon({
         className: 'dots-pin-wrap',
-        html: pinHtml(ev.category?.color ?? '#7A5CFF', selected, count),
-        iconSize: [zone, zone],
-        iconAnchor: [zone / 2, zone / 2],
+        html: pinHtml(m.color, m.intensity, m.count, selected),
+        iconSize: [size, size],
+        iconAnchor: [size / 2, size / 2],
       });
-      const marker = L.marker([ev.location.lat, ev.location.lon], {
+      const marker = L.marker([m.lat, m.lon], {
         icon,
         zIndexOffset: selected ? 1000 : 0,
         riseOnHover: true,
       });
       marker.on('click', (e: any) => {
         if (e?.originalEvent) L.DomEvent.stopPropagation(e.originalEvent);
-        onSelectRef.current(ev);
+        onSelectRef.current(m.key);
       });
       marker.addTo(group);
     });
-  }, [events, selectedId, ready, attendance]);
+  }, [markers, selectedKey, ready]);
 
-  // Bei Auswahl sanft zum Pin schwenken (Vorschau-Sheet verdeckt unten).
+  // Bei Auswahl sanft zum Pin schwenken (Sheet verdeckt unten).
   useEffect(() => {
     const map = mapRef.current;
-    if (!ready || !map || !selectedId) return;
-    const ev = events.find((e) => e.id === selectedId);
-    if (ev?.location) map.panTo([ev.location.lat, ev.location.lon], { animate: true });
-  }, [selectedId, ready, events]);
+    if (!ready || !map || !selectedKey) return;
+    const m = markers.find((x) => x.key === selectedKey);
+    if (m) map.panTo([m.lat, m.lon], { animate: true });
+  }, [selectedKey, ready, markers]);
 
   // Nutzerstandort-Marker.
   useEffect(() => {

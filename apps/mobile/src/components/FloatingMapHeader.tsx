@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import { useTheme } from '@/theme/theme';
 import { GlassButton } from './GlassButton';
 
@@ -10,20 +10,20 @@ interface Props {
 }
 
 /**
- * Sehr kompakter, schwebender Karten-Header: nackter „Karte."-Titel links
- * (ohne Chip, direkt über der Karte), runder Such-Button rechts. Ein dezenter
- * Text-Halo hält den Titel über dem Satellitenbild lesbar.
+ * Schwebender Karten-Header: „karte."-Wortmarke oben links in einer weißen,
+ * abgerundeten Box (gleicher Look wie die Datums-Box & der Such-Button), runder
+ * Such-/Filter-Button rechts.
  */
 export function FloatingMapHeader({ searchOpen, hasActiveFilters, onSearch }: Props) {
   const t = useTheme();
-  const halo = t.scheme === 'dark' ? 'rgba(0,0,0,0.55)' : 'rgba(255,255,255,0.9)';
   return (
     <View style={styles.row} pointerEvents="box-none">
-      <Text
-        style={[styles.title, { color: t.colors.textPrimary, textShadowColor: halo }]}
-        pointerEvents="none">
-        Karte<Text style={{ color: t.accent }}>.</Text>
-      </Text>
+      <View
+        style={[styles.brandBox, floatShadow, { backgroundColor: t.colors.surface, borderColor: t.colors.border }]}>
+        <Text style={[styles.brand, { color: t.colors.textPrimary }]}>
+          karte<Text style={{ color: t.accent }}>.</Text>
+        </Text>
+      </View>
 
       <View>
         <GlassButton
@@ -43,15 +43,25 @@ export function FloatingMapHeader({ searchOpen, hasActiveFilters, onSearch }: Pr
   );
 }
 
-const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
-  title: {
-    fontSize: 24,
-    fontWeight: '900',
-    letterSpacing: -0.5,
-    paddingLeft: 4,
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 10,
+const floatShadow = Platform.select({
+  web: { boxShadow: '0 6px 18px rgba(17,17,20,0.12)' } as unknown as ViewStyle,
+  default: {
+    shadowColor: '#111114',
+    shadowOpacity: 0.14,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 6,
   },
+}) as ViewStyle;
+
+const styles = StyleSheet.create({
+  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  brandBox: {
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  brand: { fontSize: 21, fontWeight: '900', letterSpacing: -0.8 },
   dot: { position: 'absolute', top: -1, right: -1, width: 13, height: 13, borderRadius: 7, borderWidth: 2 },
 });

@@ -1,33 +1,28 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
-import type { DotsEvent, GeoPoint } from '@dots/shared';
+import type { GeoPoint } from '@dots/shared';
+import type { VenueMarker } from '@/lib/venues';
 
 /**
- * MapProvider (Native) — echte Satelliten-Karte auf dem Gerät.
- *
- * Statt einer eigenen Demo-Karte rendern wir dieselbe Leaflet-/Esri-Satelliten-
- * karte wie im Web (siehe MapProvider.web.tsx), hier eingebettet in eine
- * `WebView` (läuft in Expo Go, ohne eigenen Native-Build/Map-Token). Pins (mit
- * farbigem Schein), Auswahl und „mein Standort" verhalten sich identisch.
- * Die Kommunikation läuft über `postMessage` (Auswahl) bzw. `injectJavaScript`
- * (Daten rein). Beide Plattformen teilen dieselbe Prop-Signatur.
+ * MapProvider (Native) — echte Satelliten-Karte auf dem Gerät (WebView+Leaflet,
+ * gleiche Quelle wie Web). Zeigt EINEN Pin pro Standort (Venue-Gruppe): Farbe =
+ * Kategorie, Größe = Beliebtheit, Zahl = Anzahl Events am Standort.
+ * Kommunikation via `postMessage` (Auswahl) / `injectJavaScript` (Daten rein).
  */
 export interface MapProviderProps {
-  events: DotsEvent[];
+  /** Gruppierte Standort-Marker (ein Pin je Venue). */
+  markers: VenueMarker[];
   userLocation: GeoPoint | null;
-  selectedId: string | null;
-  onSelectEvent: (event: DotsEvent | null) => void;
+  /** Schlüssel des aktiven Standorts (Venue-Gruppe). */
+  selectedKey: string | null;
+  onSelectMarker: (key: string | null) => void;
   /** Zielpunkt zum Hinfliegen (z. B. „mein Standort"); nonce stößt jedes Mal neu an. */
   focus?: { point: GeoPoint; nonce: number; zoom?: number } | null;
-  /** Zusagen je Event (eventId → Anzahl) — steuert Größe/Intensität der Zone um den Punkt. */
-  attendance?: Record<string, number>;
 }
 
-// Selbst-genügsames HTML-Dokument mit Leaflet + Heat-Plugin (von unpkg/Esri,
-// dieselben Quellen wie im Web). Definiert window.set* / window.doFocus, die von
-// React per injectJavaScript gefüttert werden, und meldet Auswahl + „ready"
-// zurück über window.ReactNativeWebView.postMessage.
+// Selbst-genügsames HTML mit Leaflet. Pins: Lila-Skala nach Beliebtheit, Größe
+// nach Beliebtheit/Anzahl, Zahl bei mehreren Events am selben Standort.
 const MAP_HTML = `<!DOCTYPE html>
 <html>
 <head>
@@ -35,7 +30,7 @@ const MAP_HTML = `<!DOCTYPE html>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
   html,body,#map{height:100%;margin:0;background:#0b1622}
-  .dots-pin{border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,.5)}
+  .dots-pin{border-radius:50%;display:flex;align-items:center;justify-content:center}
   .dots-user{width:22px;height:22px}
   .dots-user::before{content:'';position:absolute;inset:0;border-radius:50%;background:rgba(108,92,255,.35);animation:dp 1.8s ease-out infinite}
   .dots-user::after{content:'';position:absolute;top:50%;left:50%;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;background:#6C5CFF;border:3px solid #fff}
@@ -52,21 +47,19 @@ const MAP_HTML = `<!DOCTYPE html>
   var map=L.map('map',{zoomControl:false,attributionControl:false,minZoom:11,maxZoom:19,maxBounds:[[49.85,8.3],[50.4,9.05]],maxBoundsViscosity:1,zoomSnap:.5}).setView([50.113,8.682],12.5);
   L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19}).addTo(map);
   L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,opacity:.9}).addTo(map);
-  map.on('click',function(){ send({type:'select',id:null}); });
+  map.on('click',function(){ send({type:'select',key:null}); });
   var group=L.layerGroup().addTo(map);
   var userMarker=null;
-  function darken(hex,f){ var h=hex.replace('#',''); if(h.length===3){h=h[0]+h[0]+h[1]+h[1]+h[2]+h[2];} var n=parseInt(h,16); function c(x){ x=Math.round(x*f); return ('0'+x.toString(16)).slice(-2); } return '#'+c((n>>16)&255)+c((n>>8)&255)+c(n&255); }
-  function zoneDiameter(size,count){ return size+18+Math.min(count,14)*4; }
-  function zoneAlpha(count){ var a=Math.min(0.55,0.18+Math.min(count,14)*0.035); var x=Math.round(a*255); return ('0'+x.toString(16)).slice(-2); }
-  function pinHtml(color,sel,count){ var s=sel?14:10; var dark=darken(color,0.55); var ringW=sel?3:2; var z=zoneDiameter(s,count); var a=zoneAlpha(count); return '<div style="width:'+z+'px;height:'+z+'px;border-radius:50%;background:'+color+a+';display:flex;align-items:center;justify-content:center;"><div class="dots-pin'+(sel?' dots-pin--sel':'')+'" style="width:'+s+'px;height:'+s+'px;background:'+color+';box-shadow:0 0 0 '+ringW+'px '+dark+';"></div></div>'; }
-  window.setMarkers=function(events,selectedId){
+  function pinSize(it,count,sel){ var base=count>1 ? 20+Math.min(count,6)*2+Math.round(it*4) : 11+Math.round(it*6); return sel?base+3:base; }
+  function pinHtml(color,it,count,sel){ var s=pinSize(it,count,sel); var num=count>1 ? '<span style="color:#fff;font-weight:800;font-size:'+Math.max(10,Math.round(s*0.5))+'px;">'+count+'</span>' : ''; var glow=sel ? '0 0 16px '+color+',0 0 6px '+color+',0 1px 4px rgba(0,0,0,.45)' : '0 0 9px '+color+'cc,0 1px 3px rgba(0,0,0,.3)'; return '<div class="dots-pin" style="width:'+s+'px;height:'+s+'px;background:'+color+';box-shadow:'+glow+'">'+num+'</div>'; }
+  window.setMarkers=function(markers,selectedKey){
     group.clearLayers();
-    (events||[]).forEach(function(ev){
-      var sel=ev.id===selectedId; var s=sel?14:10; var count=ev.count||0; var z=zoneDiameter(s,count);
-      var icon=L.divIcon({className:'',html:pinHtml(ev.color||'#7A5CFF',sel,count),iconSize:[z,z],iconAnchor:[z/2,z/2]});
-      var m=L.marker([ev.lat,ev.lon],{icon:icon,zIndexOffset:sel?1000:0});
-      m.on('click',function(e){ if(e&&e.originalEvent){ L.DomEvent.stopPropagation(e.originalEvent); } send({type:'select',id:ev.id}); });
-      m.addTo(group);
+    (markers||[]).forEach(function(m){
+      var sel=m.key===selectedKey; var s=pinSize(m.intensity,m.count,sel);
+      var icon=L.divIcon({className:'',html:pinHtml(m.color,m.intensity,m.count,sel),iconSize:[s,s],iconAnchor:[s/2,s/2]});
+      var mk=L.marker([m.lat,m.lon],{icon:icon,zIndexOffset:sel?1000:0});
+      mk.on('click',function(e){ if(e&&e.originalEvent){ L.DomEvent.stopPropagation(e.originalEvent); } send({type:'select',key:m.key}); });
+      mk.addTo(group);
     });
   };
   window.setUser=function(loc){
@@ -83,35 +76,25 @@ const MAP_HTML = `<!DOCTYPE html>
 </html>`;
 
 export function MapProvider({
-  events,
+  markers,
   userLocation,
-  selectedId,
-  onSelectEvent,
+  selectedKey,
+  onSelectMarker,
   focus,
-  attendance,
 }: MapProviderProps) {
   const webRef = useRef<WebView>(null);
   const ready = useRef(false);
   const lastFocus = useRef(0);
-  const onSelectRef = useRef(onSelectEvent);
-  onSelectRef.current = onSelectEvent;
+  const onSelectRef = useRef(onSelectMarker);
+  onSelectRef.current = onSelectMarker;
 
   const run = useCallback((js: string) => {
     webRef.current?.injectJavaScript(js + '; true;');
   }, []);
 
   const pushMarkers = useCallback(() => {
-    const data = events
-      .filter((e) => e.location)
-      .map((e) => ({
-        id: e.id,
-        lat: e.location!.lat,
-        lon: e.location!.lon,
-        color: e.category?.color ?? '#7A5CFF',
-        count: attendance?.[e.id] ?? 0,
-      }));
-    run(`window.setMarkers && window.setMarkers(${JSON.stringify(data)}, ${JSON.stringify(selectedId)})`);
-  }, [events, selectedId, attendance, run]);
+    run(`window.setMarkers && window.setMarkers(${JSON.stringify(markers)}, ${JSON.stringify(selectedKey)})`);
+  }, [markers, selectedKey, run]);
 
   const pushUser = useCallback(() => {
     const loc = userLocation ? { lat: userLocation.lat, lon: userLocation.lon } : null;
@@ -132,7 +115,7 @@ export function MapProvider({
   }, [focus, run]);
 
   const onMessage = (e: WebViewMessageEvent) => {
-    let msg: { type?: string; id?: string | null };
+    let msg: { type?: string; key?: string | null };
     try {
       msg = JSON.parse(e.nativeEvent.data);
     } catch {
@@ -147,8 +130,7 @@ export function MapProvider({
         run(`window.doFocus && window.doFocus(${JSON.stringify(focus)})`);
       }
     } else if (msg.type === 'select') {
-      const ev = msg.id ? events.find((x) => x.id === msg.id) ?? null : null;
-      onSelectRef.current(ev);
+      onSelectRef.current(msg.key ?? null);
     }
   };
 

@@ -1,14 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Platform, Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/theme/theme';
 
-// route.name → expo-router Href (Gruppe „(tabs)" taucht im Pfad nicht auf)
+// route.name → expo-router Href (Gruppe „(tabs)" taucht im Pfad nicht auf).
+// index = Karte (Startbildschirm), discover = Entdecken-Liste.
 const HREF: Record<string, string> = {
   index: '/',
-  map: '/map',
+  discover: '/discover',
   friends: '/friends',
   favorites: '/favorites',
   profile: '/profile',
@@ -31,17 +31,17 @@ interface TabBarProps {
 
 // route.name → [aktiv, inaktiv] Ionicons
 const ICONS: Record<string, [string, string]> = {
-  index: ['compass', 'compass-outline'],
-  map: ['map', 'map-outline'],
+  index: ['map', 'map-outline'],
+  discover: ['compass', 'compass-outline'],
   friends: ['people', 'people-outline'],
   favorites: ['heart', 'heart-outline'],
   profile: ['person', 'person-outline'],
 };
 
 /**
- * Schwebende „Liquid Glass"-Tab-Bar: abgesetzt vom Rand, Blur + Lichtkante +
- * weicher Schatten. Aktiver Tab = Marken-Verlauf-Icon mit Glow, inaktive ruhig
- * und grau. Reine Darstellung — Navigation kommt unverändert aus react-navigation.
+ * Schwebende Tab-Bar: abgesetzt vom Rand, weiße Fläche + feine Kante + dezenter
+ * Schatten. Aktiver Tab = solides Lila-Icon, inaktive ruhig und grau. Reine
+ * Darstellung — Navigation kommt unverändert aus react-navigation.
  */
 export function FloatingTabBar({ state, descriptors, navigation }: TabBarProps) {
   const t = useTheme();
@@ -83,14 +83,8 @@ export function FloatingTabBar({ state, descriptors, navigation }: TabBarProps) 
                 accessibilityLabel={label}
                 style={styles.item}>
                 {focused ? (
-                  <View style={glow(t.accent)}>
-                    <LinearGradient
-                      colors={t.gradient}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                      style={styles.activeIcon}>
-                      <Ionicons name={activeIcon as never} size={22} color="#fff" />
-                    </LinearGradient>
+                  <View style={[styles.activeIcon, { backgroundColor: t.accent }]}>
+                    <Ionicons name={activeIcon as never} size={22} color="#fff" />
                   </View>
                 ) : (
                   <View style={styles.inactiveIcon}>
@@ -105,19 +99,6 @@ export function FloatingTabBar({ state, descriptors, navigation }: TabBarProps) 
     </View>
   );
 }
-
-const glow = (color: string): ViewStyle =>
-  Platform.select({
-    web: { boxShadow: `0 8px 18px ${color}66`, borderRadius: 14 } as unknown as ViewStyle,
-    default: {
-      shadowColor: color,
-      shadowOpacity: 0.5,
-      shadowRadius: 12,
-      shadowOffset: { width: 0, height: 6 },
-      elevation: 8,
-      borderRadius: 14,
-    },
-  }) as ViewStyle;
 
 const styles = StyleSheet.create({
   wrap: { position: 'absolute', left: 16, right: 16, alignItems: 'stretch' },

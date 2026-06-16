@@ -1,6 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { DotsEvent } from '@dots/shared';
 import { palette } from '@dots/shared';
@@ -10,6 +9,8 @@ import { useTheme } from '@/theme/theme';
 import { FavoriteButton } from './FavoriteButton';
 import { GlassCard } from './GlassCard';
 
+// Fallback-Akzent, falls eine Kategorie (noch) keine Farbe hat.
+
 interface Props {
   event: DotsEvent;
   onPress: () => void;
@@ -18,13 +19,15 @@ interface Props {
 }
 
 /**
- * Event als hochwertige „Liquid Glass"-Karte: Gradient-Icon-Kachel, Meta/Titel/
- * Venue, Preis + Herz rechts, Social-Zeile unten. Press-Feedback per Scale.
+ * Event als ruhige, weiße Karte mit farbcodierter Kategorie-Kachel: jede
+ * Kategorie hat ihre eigene Farbe (Icon + dezent getönte Fläche). Meta/Titel/
+ * Venue, Preis + Herz rechts. Press-Feedback per Scale.
  */
 export function EventCard({ event, onPress, rank }: Props) {
   const t = useTheme();
-  const color = event.category?.color ?? t.accent;
   const free = isFree(event);
+  // Kategorie-Farbe (z. B. Clubbing = Lila, Open Air = Grün); Fallback = Marken-Lila.
+  const color = event.category?.color ?? t.accent;
 
   return (
     <Pressable
@@ -32,27 +35,15 @@ export function EventCard({ event, onPress, rank }: Props) {
       style={({ pressed }) => [styles.pressable, { transform: [{ scale: pressed ? 0.975 : 1 }] }]}>
       <GlassCard style={styles.card}>
         <View style={styles.body}>
-          {/* Gradient-Kachel mit Kategorie-Icon + Glanz */}
+          {/* Kachel in Kategorie-Farbe: getönte Fläche + farbiges Icon */}
           <View style={styles.tileWrap}>
-            <LinearGradient
-              colors={[hexA(color, 0.95), hexA(color, 0.7)]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.tile}>
+            <View style={[styles.tile, { backgroundColor: hexA(color, 0.14) }]}>
               {event.coverImageUrl ? (
                 <Image source={event.coverImageUrl} style={StyleSheet.absoluteFill} contentFit="cover" />
               ) : (
-                <>
-                  <LinearGradient
-                    colors={['rgba(255,255,255,0.5)', 'rgba(255,255,255,0)']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={StyleSheet.absoluteFill}
-                  />
-                  <Ionicons name={(event.category?.icon ?? 'sparkles') as never} size={26} color="#fff" />
-                </>
+                <Ionicons name={(event.category?.icon ?? 'sparkles') as never} size={25} color={color} />
               )}
-            </LinearGradient>
+            </View>
             {rank != null && (
               <View style={[styles.rank, { backgroundColor: t.accent, borderColor: t.colors.surface }]}>
                 <Text style={styles.rankText}>{rank}</Text>
