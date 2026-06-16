@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useDeferredValue, useEffect, useMemo, useState } from 'react';
-import { LayoutAnimation, Pressable, StyleSheet, View } from 'react-native';
+import { LayoutAnimation, Platform, Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { DotsEvent, GeoPoint, QuickFilterId, TimeTabId } from '@dots/shared';
 import { EventPreviewSheet } from '@/components/EventPreviewSheet';
@@ -134,8 +134,11 @@ export default function MapScreen() {
         style={[styles.topOverlay, { paddingTop: insets.top + 6 }]}
         onLayout={(e) => setTopH(e.nativeEvent.layout.height)}
         pointerEvents="box-none">
-        <FloatingMapHeader searchOpen={open} hasActiveFilters={hasActive} onSearch={toggleOpen} />
-        <TimeTabs separate value={tab} onChange={setTab} />
+        {/* Dunkle, schwebende Box — gleicher Look wie die Tab-Bar unten */}
+        <View style={[styles.panel, { backgroundColor: t.colors.surface, borderColor: t.colors.border }]}>
+          <FloatingMapHeader searchOpen={open} hasActiveFilters={hasActive} onSearch={toggleOpen} />
+          <TimeTabs separate value={tab} onChange={setTab} />
+        </View>
       </View>
 
       {/* Schwebende Karten-Aktionen (verstecken, wenn Sheet/Panel offen) */}
@@ -197,6 +200,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     gap: 8,
     zIndex: 20,
+  },
+  panel: {
+    borderRadius: 26,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 10,
+    ...(Platform.select({
+      web: { boxShadow: '0 16px 36px rgba(0,0,0,0.5)' } as unknown as ViewStyle,
+      default: {
+        shadowColor: '#000',
+        shadowOpacity: 0.5,
+        shadowRadius: 22,
+        shadowOffset: { width: 0, height: 12 },
+        elevation: 12,
+      },
+    }) as ViewStyle),
   },
   backdrop: { position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(17,24,39,0.18)', zIndex: 25 },
   panelWrap: { position: 'absolute', left: 12, right: 12, zIndex: 30 },

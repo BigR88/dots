@@ -47,12 +47,7 @@ export function TimeTabs({
                   </LinearGradient>
                 </View>
               ) : (
-                <View
-                  style={[
-                    styles.chip,
-                    styles.chipSolid,
-                    { backgroundColor: t.colors.surface, borderColor: t.colors.border },
-                  ]}>
+                <View style={[styles.chip, styles.chipSolid, { backgroundColor: t.colors.surface }]}>
                   <Text style={[styles.chipLabel, { color: t.colors.textSecondary }]}>{tab.label}</Text>
                 </View>
               )}
@@ -156,7 +151,6 @@ const styles = StyleSheet.create({
   chipRow: { flexDirection: 'row', gap: 7 },
   chip: { paddingVertical: 7, paddingHorizontal: 13, borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
   chipSolid: {
-    borderWidth: StyleSheet.hairlineWidth,
     ...Platform.select({
       web: { boxShadow: '0 4px 12px rgba(17,24,39,0.14)' } as unknown as ViewStyle,
       default: {
