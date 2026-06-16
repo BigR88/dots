@@ -5,7 +5,6 @@ import { isFree, isUnder20 } from '@/lib/format';
 import { distanceMeters } from '@/lib/geo';
 import { fetchSocialStats } from './social';
 import { isSupabaseConfigured, supabase } from './supabase';
-import { buildTestEvents } from './test-events';
 
 // Radius für den "Nähe zu mir"-Schnellfilter (§2.1 M7).
 const NEAR_ME_RADIUS_M = 3000;
@@ -165,9 +164,7 @@ async function fetchPublished(): Promise<DotsEvent[]> {
 // ── Öffentliche API ─────────────────────────────────────────────────────────
 export async function listEvents(q: EventQuery): Promise<DotsEvent[]> {
   const fetched = isSupabaseConfigured ? await fetchPublished() : FIXTURE_EVENTS;
-  // Clientseitige Test-Events dazumischen (Demo; keine DB-Schreibvorgänge).
-  const base = [...fetched, ...buildTestEvents()];
-  const out = applyFilters(base, q);
+  const out = applyFilters(fetched, q);
 
   // Trending live: nach echtem Trend-Score (Zusagen×5 + Klicks/7T) ordnen,
   // solange der Nutzer nicht explizit anders sortiert hat.
@@ -189,16 +186,13 @@ export async function listEvents(q: EventQuery): Promise<DotsEvent[]> {
 export async function listEventsByIds(ids: readonly string[]): Promise<DotsEvent[]> {
   if (ids.length === 0) return [];
   const fetched = isSupabaseConfigured ? await fetchPublished() : FIXTURE_EVENTS;
-  const base = [...fetched, ...buildTestEvents()];
   const wanted = new Set(ids);
-  return base
+  return fetched
     .filter((e) => wanted.has(e.id))
     .sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime());
 }
 
 export async function getEventById(id: string): Promise<DotsEvent | null> {
-  // Test-Events liegen nicht in der DB — direkt auflösen.
-  if (id.startsWith('test-')) return buildTestEvents().find((e) => e.id === id) ?? null;
   if (isSupabaseConfigured && supabase) {
     const { data, error } = await supabase
       .from('events')
