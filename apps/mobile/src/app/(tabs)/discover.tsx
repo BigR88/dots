@@ -14,7 +14,7 @@ import { FilterPanel } from '@/components/FilterPanel';
 import { GlassButton } from '@/components/GlassButton';
 import { ScreenBackground } from '@/components/ScreenBackground';
 import { SkeletonCard } from '@/components/SkeletonCard';
-import { listEvents, usingLiveBackend, type EventQuery } from '@/data/events';
+import { listEvents, type EventQuery } from '@/data/events';
 import { useLocation } from '@/hooks/use-location';
 import { isoDay } from '@/lib/time';
 import { useTheme } from '@/theme/theme';
@@ -86,7 +86,7 @@ export default function DiscoverScreen() {
           <View style={styles.headerRow}>
             <View style={{ flex: 1 }}>
               <Text style={[styles.brand, { color: t.colors.textPrimary }]}>
-                dots<Text style={{ color: t.accent }}>.</Text>
+                Dots<Text style={{ color: t.accent }}>.</Text>
               </Text>
             </View>
             <View>
@@ -113,12 +113,6 @@ export default function DiscoverScreen() {
             search={deferredSearch}
             onPress={toggleOpen}
           />
-
-          {!usingLiveBackend && (
-            <Text style={[styles.demoNote, { color: t.colors.textMuted }]}>
-              Demo-Modus · lokale Beispiel-Events
-            </Text>
-          )}
         </View>
 
         <FlatList
@@ -214,7 +208,6 @@ const styles = StyleSheet.create({
     borderRadius: 7,
     borderWidth: 2,
   },
-  demoNote: { fontSize: 11, paddingHorizontal: 16, paddingTop: 8 },
   listContent: { paddingHorizontal: 16, paddingTop: 16 },
   listPad: { paddingTop: 4 },
   backdrop: { position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(17,24,39,0.18)' },

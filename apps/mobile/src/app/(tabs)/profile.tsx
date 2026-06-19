@@ -32,8 +32,10 @@ export default function ProfileScreen() {
   const attending = useAttendingIds();
   const overview = useFriendOverview();
 
-  const name = profile.data?.displayName ?? displayName ?? 'Gast';
-  const username = profile.data?.username ?? suggestUsername(displayName, email);
+  const name = profile.data?.displayName ?? displayName ?? 'Benas Gibson';
+  const username =
+    profile.data?.username ??
+    (displayName || email ? suggestUsername(displayName, email) : 'dots.developer');
   const bio = profile.data?.bio ?? null;
   const interests = profile.data?.interests ?? [];
   const seed = profile.data?.id ?? name;
@@ -86,7 +88,6 @@ export default function ProfileScreen() {
             <Text style={[styles.title, { color: t.colors.textPrimary }]}>
               Profil<Text style={{ color: t.accent }}>.</Text>
             </Text>
-            <Text style={[styles.subtitle, { color: t.colors.textSecondary }]}>Dein dots.-Konto</Text>
           </View>
           <Pressable
             onPress={() => router.push('/settings')}
@@ -117,7 +118,7 @@ export default function ProfileScreen() {
 
         {/* Dein Vibe */}
         <View style={styles.section}>
-          <SectionLabel title="Dein Vibe" hint="Deine Lieblingskategorien." />
+          <SectionLabel title="Dein Vibe" />
           {interests.length > 0 ? (
             <VibeChips selected={interests} />
           ) : (
@@ -138,7 +139,7 @@ export default function ProfileScreen() {
 
         {/* Aktuelle Pläne */}
         <View style={styles.section}>
-          <SectionLabel title="Aktuelle Pläne" hint="Dein nächstes Event." />
+          <SectionLabel title="Aktuelle Pläne" />
           <NextPlanCard
             event={nextEvent}
             onOpen={(id) => router.push(`/event/${id}`)}
@@ -167,7 +168,6 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: 16 },
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 },
   title: { fontSize: 28, fontWeight: '900', letterSpacing: -0.8 },
-  subtitle: { fontSize: 13.5, marginTop: 1 },
   gear: {
     width: 44,
     height: 44,

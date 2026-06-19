@@ -139,10 +139,6 @@ function LiveFriends() {
             </View>
           )}
         </View>
-
-        <Text style={[styles.footnote, { color: t.colors.textMuted }]}>
-          Chat ist noch im Demo-Modus — die Zustellung kommt mit dem nächsten Schritt.
-        </Text>
       </ScrollView>
     </View>
   );
@@ -177,7 +173,6 @@ function DemoFriends() {
         keyboardShouldPersistTaps="handled">
         <FriendsHeader
           subtitle="Wer geht wohin?"
-          note="Demo-Freunde · echte Konten & Anfragen sind im verbundenen Modus aktiv"
           onAction={() => router.push('/add-friends')}
           actionLabel="Anfragen & Freunde finden"
         />
@@ -224,5 +219,4 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: 16, paddingTop: 4 },
   section: { marginTop: 22 },
   sectionBody: { gap: 10 },
-  footnote: { fontSize: 12, textAlign: 'center', marginTop: 26, lineHeight: 17 },
 });
