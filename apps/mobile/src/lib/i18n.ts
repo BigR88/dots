@@ -11,9 +11,21 @@ const DICT: Record<string, Entry> = {
   'settings.title': { de: 'Einstellungen', en: 'Settings' },
   'settings.back': { de: 'Zurück', en: 'Back' },
 
+  'section.account': { de: 'Konto', en: 'Account' },
   'section.privacy': { de: 'Privatsphäre', en: 'Privacy' },
   'section.map': { de: 'Karte', en: 'Map' },
   'section.language': { de: 'Sprache', en: 'Language' },
+
+  'account.editProfile': { de: 'Profil bearbeiten', en: 'Edit profile' },
+  'account.editProfile.sub': {
+    de: 'Name, @username, Bio & Vibe',
+    en: 'Name, @username, bio & vibe',
+  },
+  'privacy.entry.sub': {
+    de: 'Sichtbarkeit, Auffindbarkeit & Standort',
+    en: 'Visibility, discoverability & location',
+  },
+  'account.signOut': { de: 'Abmelden', en: 'Sign out' },
 
   'priv.locationFriends': { de: 'Standort für Freunde', en: 'Location for friends' },
   'priv.locationFriends.sub': {

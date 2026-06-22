@@ -11,21 +11,24 @@ interface Props {
   email?: string | null;
   bio?: string | null;
   seed: string;
+  imageUri?: string | null;
   stats: StatItem[];
-  onEdit: () => void;
+  onAvatarPress: () => void;
   onShare: () => void;
 }
 
 /**
- * Großer Profil-Kopf als Liquid-Glass-Card: prominenter Gradient-Avatar, Name,
- * eindeutiger @username, dezente E-Mail, optionale Bio und Premium-Stats.
+ * Großer Profil-Kopf als Liquid-Glass-Card: prominenter Gradient-Avatar (bzw.
+ * Foto), Name, eindeutiger @username, dezente E-Mail, optionale Bio und Stats.
+ * Tippen auf den Avatar öffnet die Foto-Auswahl; Bearbeiten liegt in den
+ * Einstellungen.
  */
-export function ProfileHeaderCard({ name, username, email, bio, seed, stats, onEdit, onShare }: Props) {
+export function ProfileHeaderCard({ name, username, email, bio, seed, imageUri, stats, onAvatarPress, onShare }: Props) {
   const t = useTheme();
   return (
     <GlassCard style={styles.card} radius={t.radius.xl}>
       <View style={styles.top}>
-        <GradientAvatar name={name} seed={seed} size={78} onPress={onEdit} />
+        <GradientAvatar name={name} seed={seed} size={78} imageUri={imageUri} onPress={onAvatarPress} />
         <View style={styles.identity}>
           <Text numberOfLines={1} style={[styles.name, { color: t.colors.textPrimary }]}>
             {name}
@@ -53,17 +56,6 @@ export function ProfileHeaderCard({ name, username, email, bio, seed, stats, onE
 
       {bio ? <Text style={[styles.bio, { color: t.colors.textSecondary }]}>{bio}</Text> : null}
 
-      <Pressable
-        onPress={onEdit}
-        accessibilityLabel="Profil bearbeiten"
-        style={({ pressed }) => [
-          styles.editBtn,
-          { backgroundColor: t.colors.surfaceElevated, opacity: pressed ? 0.8 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] },
-        ]}>
-        <Ionicons name="create-outline" size={16} color={t.colors.textPrimary} />
-        <Text style={[styles.editText, { color: t.colors.textPrimary }]}>Profil bearbeiten</Text>
-      </Pressable>
-
       <View style={[styles.divider, { backgroundColor: t.colors.border }]} />
       <ProfileStats items={stats} />
     </GlassCard>
@@ -79,14 +71,5 @@ const styles = StyleSheet.create({
   email: { fontSize: 12, marginTop: 1 },
   shareBtn: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
   bio: { fontSize: 14, lineHeight: 20 },
-  editBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 7,
-    paddingVertical: 11,
-    borderRadius: 14,
-  },
-  editText: { fontSize: 14.5, fontWeight: '800' },
   divider: { height: StyleSheet.hairlineWidth, marginTop: 2 },
 });

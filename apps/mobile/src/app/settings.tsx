@@ -2,20 +2,22 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { AccountActionCard } from '@/components/profile/AccountActionCard';
 import { PrivacySettingRow } from '@/components/profile/PrivacySettingRow';
 import { SectionLabel } from '@/components/profile/SectionLabel';
+import { SettingsLinkRow } from '@/components/profile/SettingsLinkRow';
+import { useAuth } from '@/hooks/use-auth';
 import { useLanguage, type Language } from '@/hooks/use-language';
 import { useLocation } from '@/hooks/use-location';
 import { useLocationEnabled } from '@/hooks/use-location-enabled';
-import { useLocationSharing } from '@/hooks/use-location-sharing';
-import { setPrivacyPref, usePrivacyPrefs } from '@/hooks/use-privacy-prefs';
 import { useT } from '@/lib/i18n';
 import { useTheme } from '@/theme/theme';
 
 /**
- * Einstellungen — zentrale Stelle für Privatsphäre, Karten-Standort und Sprache.
- * Erreichbar über das Zahnrad im Profil (und auf der Karte). Voll übersetzt
- * (DE/EN über die i18n-Schicht), Sprachwahl wirkt sofort auf diesen Screen.
+ * Einstellungen — Übersicht mit Drill-down-Zeilen (Profil bearbeiten,
+ * Privatsphäre) sowie Karten-Standort und Sprache inline. Erreichbar über das
+ * Zahnrad im Profil (und auf der Karte). Voll übersetzt (DE/EN), Sprachwahl
+ * wirkt sofort.
  */
 export default function SettingsScreen() {
   const t = useTheme();
@@ -24,10 +26,9 @@ export default function SettingsScreen() {
   const router = useRouter();
 
   const [locationEnabled, setLocationEnabled] = useLocationEnabled();
-  const [shareLocation, setShareLocation] = useLocationSharing();
-  const prefs = usePrivacyPrefs();
   const [lang, setLang] = useLanguage();
   const { request, status } = useLocation();
+  const { signOut } = useAuth();
 
   const toggleLocation = (next: boolean) => {
     // Funktion sofort umschalten (nicht vom Geolocation-Ergebnis abhängig machen);
@@ -36,7 +37,6 @@ export default function SettingsScreen() {
     if (next) void request();
   };
   const denied = status === 'denied';
-  const soon = tr('tag.soon');
 
   return (
     <View style={[styles.root, { backgroundColor: t.colors.background, paddingTop: insets.top + 8 }]}>
@@ -48,54 +48,31 @@ export default function SettingsScreen() {
           accessibilityLabel={tr('settings.back')}>
           <Ionicons name="chevron-back" size={26} color={t.colors.textPrimary} />
         </Pressable>
-        <Text style={[styles.headerTitle, { color: t.colors.textPrimary }]}>{tr('settings.title')}</Text>
+        <Text style={[styles.headerTitle, { color: t.colors.textPrimary }]}>
+          {tr('settings.title')}<Text style={{ color: t.accent }}>.</Text>
+        </Text>
       </View>
 
       <ScrollView
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}
         showsVerticalScrollIndicator={false}>
-        {/* Privatsphäre */}
-        <SectionLabel title={tr('section.privacy')} />
+        {/* Konto & Privatsphäre als Drill-down */}
+        <SectionLabel title={tr('section.account')} />
         <View style={[styles.card, { backgroundColor: t.colors.surface, borderColor: t.colors.border }]}>
-          <PrivacySettingRow
-            icon="navigate"
-            label={tr('priv.locationFriends')}
-            sub={tr('priv.locationFriends.sub')}
-            value={shareLocation}
-            onValueChange={setShareLocation}
+          <SettingsLinkRow
+            icon="person-circle"
+            label={tr('account.editProfile')}
+            sub={tr('account.editProfile.sub')}
+            onPress={() => router.push('/edit-profile')}
           />
           <View style={[styles.divider, { backgroundColor: t.colors.border }]} />
-          <PrivacySettingRow
-            icon="at"
-            label={tr('priv.discoverable')}
-            sub={tr('priv.discoverable.sub')}
-            value={prefs.discoverable}
-            onValueChange={(v) => setPrivacyPref('discoverable', v)}
-            upcoming
-            tagLabel={soon}
-          />
-          <View style={[styles.divider, { backgroundColor: t.colors.border }]} />
-          <PrivacySettingRow
-            icon="calendar"
-            label={tr('priv.showAttendance')}
-            sub={tr('priv.showAttendance.sub')}
-            value={prefs.show_attendance}
-            onValueChange={(v) => setPrivacyPref('show_attendance', v)}
-            upcoming
-            tagLabel={soon}
-          />
-          <View style={[styles.divider, { backgroundColor: t.colors.border }]} />
-          <PrivacySettingRow
+          <SettingsLinkRow
             icon="lock-closed"
-            label={tr('priv.profileVisible')}
-            sub={tr('priv.profileVisible.sub')}
-            value={prefs.profile_visible}
-            onValueChange={(v) => setPrivacyPref('profile_visible', v)}
-            upcoming
-            tagLabel={soon}
+            label={tr('section.privacy')}
+            sub={tr('privacy.entry.sub')}
+            onPress={() => router.push('/privacy-settings')}
           />
         </View>
-        <Text style={[styles.note, { color: t.colors.textMuted }]}>{tr('privacy.note')}</Text>
 
         {/* Karte */}
         <View style={styles.gap} />
@@ -142,6 +119,12 @@ export default function SettingsScreen() {
           </View>
         </View>
         <Text style={[styles.note, { color: t.colors.textMuted }]}>{tr('lang.note')}</Text>
+
+        {/* Abmelden ganz unten (Standard-Muster) */}
+        <View style={styles.gap} />
+        <AccountActionCard
+          actions={[{ icon: 'log-out-outline', label: tr('account.signOut'), onPress: signOut, danger: true }]}
+        />
       </ScrollView>
     </View>
   );

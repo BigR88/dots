@@ -6,7 +6,6 @@ import { useMemo } from 'react';
 import { Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FIXTURE_FRIENDS } from '@dots/shared';
-import { AccountActionCard } from '@/components/profile/AccountActionCard';
 import { NextPlanCard } from '@/components/profile/NextPlanCard';
 import { ProfileHeaderCard } from '@/components/profile/ProfileHeaderCard';
 import { SectionLabel } from '@/components/profile/SectionLabel';
@@ -15,6 +14,7 @@ import { listEventsByIds } from '@/data/events';
 import { isSupabaseConfigured } from '@/data/supabase';
 import { useAttendingIds } from '@/hooks/use-attendance';
 import { useAuth } from '@/hooks/use-auth';
+import { pickAvatar, useAvatar } from '@/hooks/use-avatar';
 import { useFavoriteIds } from '@/hooks/use-favorites';
 import { useFriendOverview } from '@/hooks/use-friends';
 import { useMyProfile } from '@/hooks/use-profile';
@@ -25,9 +25,10 @@ export default function ProfileScreen() {
   const t = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { displayName, email, signOut } = useAuth();
+  const { displayName, email } = useAuth();
 
   const profile = useMyProfile();
+  const avatar = useAvatar();
   const favorites = useFavoriteIds();
   const attending = useAttendingIds();
   const overview = useFriendOverview();
@@ -107,7 +108,8 @@ export default function ProfileScreen() {
           email={email}
           bio={bio}
           seed={seed}
-          onEdit={() => router.push('/edit-profile')}
+          imageUri={avatar}
+          onAvatarPress={() => void pickAvatar()}
           onShare={onShare}
           stats={[
             { label: 'Favoriten', value: favorites.size, icon: 'heart', onPress: () => router.navigate('/favorites') },
@@ -147,16 +149,6 @@ export default function ProfileScreen() {
           />
         </View>
 
-        {/* Account */}
-        <View style={styles.section}>
-          <SectionLabel title="Account" />
-          <AccountActionCard
-            actions={[
-              { icon: 'create-outline', label: 'Profil bearbeiten', onPress: () => router.push('/edit-profile') },
-              { icon: 'log-out-outline', label: 'Abmelden', onPress: signOut, danger: true },
-            ]}
-          />
-        </View>
       </ScrollView>
     </View>
   );

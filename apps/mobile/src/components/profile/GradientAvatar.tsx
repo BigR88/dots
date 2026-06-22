@@ -1,5 +1,6 @@
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Platform, Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, type ViewStyle } from 'react-native';
 
 // Pro Nutzer:in ein stabiles, schönes 2-Farb-Verlaufspaar (Marken-nah, aber
 // persönlich). Auswahl deterministisch aus einem Seed (User-ID/Name).
@@ -23,6 +24,8 @@ interface Props {
   seed?: string;
   size?: number;
   onPress?: () => void;
+  /** Wenn gesetzt → Foto statt Initiale (über den Marken-Verlauf gelegt). */
+  imageUri?: string | null;
 }
 
 /**
@@ -32,7 +35,7 @@ interface Props {
  * Foto-Upload (Supabase Storage) ist bewusst noch nicht integriert — sobald ein
  * Bucket existiert, kann hier ein <Image> über den Verlauf gelegt werden.
  */
-export function GradientAvatar({ name, seed, size = 84, onPress }: Props) {
+export function GradientAvatar({ name, seed, size = 84, onPress, imageUri }: Props) {
   const [c1, c2] = pairFor(seed ?? name);
   const initial = name.trim().slice(0, 1).toUpperCase() || '·';
 
@@ -42,7 +45,15 @@ export function GradientAvatar({ name, seed, size = 84, onPress }: Props) {
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={[styles.circle, glow(c1), { width: size, height: size, borderRadius: size / 2 }]}>
-      <Text style={[styles.initial, { fontSize: size * 0.42 }]}>{initial}</Text>
+      {imageUri ? (
+        <Image
+          source={{ uri: imageUri }}
+          style={{ width: size, height: size, borderRadius: size / 2 }}
+          contentFit="cover"
+        />
+      ) : (
+        <Text style={[styles.initial, { fontSize: size * 0.42 }]}>{initial}</Text>
+      )}
     </LinearGradient>
   );
 

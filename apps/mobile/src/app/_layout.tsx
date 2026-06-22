@@ -52,6 +52,7 @@ function AuthGate() {
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="event/[id]" options={{ presentation: 'modal', headerShown: false }} />
       <Stack.Screen name="settings" />
+      <Stack.Screen name="privacy-settings" />
       <Stack.Screen name="add-friends" />
       <Stack.Screen name="edit-profile" options={{ presentation: 'modal' }} />
     </Stack>

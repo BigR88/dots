@@ -1,34 +1,45 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { pickAvatar, setAvatar, useAvatar } from '@/hooks/use-avatar';
 import { useTheme } from '@/theme/theme';
 import { GradientAvatar } from './GradientAvatar';
 
 interface Props {
   name: string;
   seed: string;
-  onPress?: () => void;
 }
 
 /**
- * Avatar-Auswahl im Edit-Screen. Aktuell Gradient-Initialen (kein Foto-Upload):
- * Es gibt noch keinen Supabase-Storage-Bucket. Sobald einer existiert, kann
- * `onPress` einen Image-Picker öffnen und das Foto hochladen — die UI ist hier
- * bereits vorbereitet (Kamera-Badge + Hinweis).
+ * Avatar-Auswahl im Edit-Screen: tippen öffnet die Foto-Galerie (quadratischer
+ * Zuschnitt). Das gewählte Bild wird lokal gespeichert ([[use-avatar]]) und
+ * erscheint sofort im Profil-Kopf. Ohne Foto bleibt die Gradient-Initiale.
  */
-export function AvatarPicker({ name, seed, onPress }: Props) {
+export function AvatarPicker({ name, seed }: Props) {
   const t = useTheme();
+  const avatar = useAvatar();
+
+  const pick = () => void pickAvatar();
+
   return (
     <View style={styles.wrap}>
       <Pressable
-        onPress={onPress}
-        disabled={!onPress}
-        style={({ pressed }) => [{ transform: [{ scale: pressed && onPress ? 0.95 : 1 }] }]}>
-        <GradientAvatar name={name} seed={seed} size={92} />
+        onPress={pick}
+        accessibilityLabel="Profilbild ändern"
+        style={({ pressed }) => [{ transform: [{ scale: pressed ? 0.95 : 1 }] }]}>
+        <GradientAvatar name={name} seed={seed} size={92} imageUri={avatar} />
         <View style={[styles.badge, { backgroundColor: t.colors.surface, borderColor: t.colors.border }]}>
           <Ionicons name="camera" size={16} color={t.accent} />
         </View>
       </Pressable>
-      <Text style={[styles.hint, { color: t.colors.textMuted }]}>Foto-Upload kommt bald</Text>
+      {avatar ? (
+        <Pressable onPress={() => setAvatar(null)} hitSlop={6} accessibilityLabel="Profilbild entfernen">
+          <Text style={[styles.action, { color: t.colors.textMuted }]}>Foto entfernen</Text>
+        </Pressable>
+      ) : (
+        <Pressable onPress={pick} hitSlop={6}>
+          <Text style={[styles.action, { color: t.accent }]}>Foto auswählen</Text>
+        </Pressable>
+      )}
     </View>
   );
 }
@@ -46,5 +57,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  hint: { fontSize: 12 },
+  action: { fontSize: 13, fontWeight: '700' },
 });
