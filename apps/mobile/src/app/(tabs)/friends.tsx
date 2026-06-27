@@ -75,6 +75,12 @@ function LiveFriends() {
       params: { friendId: u.id, name: u.name, color: colorFromId(u.id) },
     });
 
+  const openProfile = (u: FriendProfile) =>
+    router.push({
+      pathname: '/friend/[id]',
+      params: { id: u.id, name: u.name, color: colorFromId(u.id) },
+    });
+
   return (
     <View style={[styles.root, { backgroundColor: t.colors.background, paddingTop: insets.top }]}>
       <ScrollView
@@ -134,6 +140,7 @@ function LiveFriends() {
                   events={eventsForFriend(f.id)}
                   onChat={() => openChat(f)}
                   onOpenEvent={(id) => router.push(`/event/${id}`)}
+                  onOpenProfile={() => openProfile(f)}
                 />
               ))}
             </View>
@@ -204,6 +211,7 @@ function DemoFriends() {
                   events={goingFor(friend)}
                   onChat={() => router.push(`/chat/${friend.id}`)}
                   onOpenEvent={(id) => router.push(`/event/${id}`)}
+                  onOpenProfile={() => router.push({ pathname: '/friend/[id]', params: { id: friend.id } })}
                 />
               ))}
             </View>

@@ -94,6 +94,18 @@ const SEED: Seed[] = [
   { id: 'e18', title: 'Großes Open Air Festival', description: 'Tagesfestival am Mainufer mit fünf Acts, Foodtrucks und Sonnenschein.', start: '2026-06-20T14:00:00+02:00', end: '2026-06-21T00:00:00+02:00', venue: 'citybeach', category: 'open_air', genre: 'Electronic', vibes: ['festival', 'openair', 'daytime'], price: 'paid', min: 25, max: 35, age: 18, ticket: 'https://citybeach-frankfurt.de', pop: 97 },
   { id: 'e19', title: 'Craft Beer & BBQ Day', description: 'Day-Drinking-Special: lokale Craft-Biere und Smoker-BBQ am Wasser.', start: '2026-06-21T13:00:00+02:00', end: '2026-06-21T20:00:00+02:00', venue: 'botschaft', category: 'day_drinking', vibes: ['craftbeer', 'bbq', 'daydrinking'], price: 'free', age: 18, pop: 51 },
   { id: 'e20', title: 'Kultur & Klub: Ausstellung trifft DJ', description: 'Kunstausstellung am frühen Abend, DJ-Set zur späten Stunde.', start: '2026-06-19T18:00:00+02:00', end: '2026-06-20T03:00:00+02:00', venue: 'silbergold', category: 'culture', genre: 'Electronica', vibes: ['culture', 'art', 'club'], price: 'paid', min: 8, age: 18, pop: 29 },
+
+  // Heute — Sa 27.06.2026
+  { id: 'e21', title: 'Saturday Soirée', description: 'House & Disco auf zwei Floors zum Wochenend-Höhepunkt im Gibson.', start: '2026-06-27T23:00:00+02:00', end: '2026-06-28T05:00:00+02:00', venue: 'gibson', category: 'clubbing', genre: 'House', vibes: ['house', 'disco', 'party'], price: 'paid', min: 12, max: 15, age: 18, ticket: 'https://gibson-club.de', pop: 74 },
+  { id: 'e22', title: 'Sundowner am Main', description: 'Aperol, sanfte Beats und Skyline-Blick zum Sonnenuntergang.', start: '2026-06-27T18:00:00+02:00', end: '2026-06-27T23:30:00+02:00', venue: 'mainnizza', category: 'rooftop', genre: 'Deep House', vibes: ['rooftop', 'sundowner', 'cocktails'], price: 'free', age: 18, external: 'https://mainnizza.de', pop: 58 },
+
+  // Morgen — So 28.06.2026
+  { id: 'e23', title: 'Sunday Jazz Brunch', description: 'Live-Jazz-Trio, frischer Brunch und entspannter Sonntag.', start: '2026-06-28T12:00:00+02:00', end: '2026-06-28T16:00:00+02:00', venue: 'suedbahnhof', category: 'live_music', genre: 'Jazz', vibes: ['jazz', 'brunch', 'chill'], price: 'paid', min: 10, max: 12, pop: 31 },
+  { id: 'e24', title: 'Beach Day Drinking', description: 'Sand, Spritz und Open-Air-House mitten in der City — der Sonntag am Strand.', start: '2026-06-28T14:00:00+02:00', end: '2026-06-28T23:00:00+02:00', venue: 'citybeach', category: 'day_drinking', genre: 'Beach House', vibes: ['beach', 'daydrinking', 'openair'], price: 'free', age: 18, external: 'https://citybeach-frankfurt.de', pop: 63 },
+
+  // Mo 29.06.2026
+  { id: 'e25', title: 'Monday Vinyl Bar', description: 'Soul- und Funk-Platten bei Naturwein zum Wochenstart.', start: '2026-06-29T19:30:00+02:00', end: '2026-06-30T00:30:00+02:00', venue: 'orangepeel', category: 'bars', genre: 'Soul', vibes: ['vinyl', 'wine', 'cozy'], price: 'free', age: 18, pop: 17 },
+  { id: 'e26', title: 'Monday Techno Late', description: 'Reduzierter Minimal-Techno gegen den Montagsblues.', start: '2026-06-29T23:00:00+02:00', end: '2026-06-30T05:00:00+02:00', venue: 'tanzhaus', category: 'clubbing', genre: 'Minimal', vibes: ['techno', 'minimal', 'latenight'], price: 'paid', min: 10, max: 12, age: 18, ticket: 'https://tanzhauswest.com/tickets', pop: 45 },
 ];
 
 /** Alle Demo-Venues (z. B. für Auswahllisten im Admin). */
@@ -141,11 +153,13 @@ export interface DemoFriend {
   color: string;
   /** Event-IDs, zu denen diese:r Demo-Freund:in zugesagt hat. */
   attending: string[];
+  /** Event-IDs, die diese:r Demo-Freund:in favorisiert hat (fürs Freundes-Profil). */
+  favorites?: string[];
 }
 
 export const FIXTURE_FRIENDS: DemoFriend[] = [
-  { id: 'f01', name: 'Lena', color: '#E84393', attending: ['e06', 'e09', 'e10', 'e18'] },
-  { id: 'f02', name: 'Jonas', color: '#0984E3', attending: ['e02', 'e10', 'e14', 'e17'] },
-  { id: 'f03', name: 'Mara', color: '#00B894', attending: ['e06', 'e11', 'e18'] },
-  { id: 'f04', name: 'Tim', color: '#E17055', attending: ['e09', 'e12', 'e17', 'e18'] },
+  { id: 'f01', name: 'Lena', color: '#E84393', attending: ['e22', 'e24', 'e06', 'e18'], favorites: ['e21', 'e15', 'e09'] },
+  { id: 'f02', name: 'Jonas', color: '#0984E3', attending: ['e21', 'e26', 'e02', 'e14'], favorites: ['e22', 'e10'] },
+  { id: 'f03', name: 'Mara', color: '#00B894', attending: ['e23', 'e24', 'e11', 'e18'], favorites: ['e06', 'e21', 'e25'] },
+  { id: 'f04', name: 'Tim', color: '#E17055', attending: ['e21', 'e25', 'e09', 'e12'], favorites: ['e24', 'e26'] },
 ];

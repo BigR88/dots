@@ -144,7 +144,12 @@ export default function MapScreen() {
         <FloatingMapHeader searchOpen={open} hasActiveFilters={hasActive} onSearch={toggleOpen} />
         {/* Box: nur die Datumsleiste — Kategorie läuft über Suche/Filter */}
         <View style={[styles.panel, { backgroundColor: t.colors.surface, borderColor: t.colors.border }]}>
-          <DateBar value={time} onChange={setTime} onOpenCalendar={() => setCalendarOpen(true)} />
+          <DateBar
+            value={time}
+            onChange={setTime}
+            onOpenCalendar={() => setCalendarOpen(true)}
+            horizontalPadding={0}
+          />
         </View>
       </View>
 
@@ -218,10 +223,11 @@ const styles = StyleSheet.create({
     zIndex: 20,
   },
   panel: {
-    // Datums-Box über die volle Breite
+    // Datums-Box über die volle Breite. Wenig Seitenabstand, damit „Heute" und
+    // der Kalender direkt am Rand der Blase sitzen.
     borderRadius: 22,
     borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 14,
+    paddingHorizontal: 10,
     paddingTop: 9,
     paddingBottom: 9,
     ...(Platform.select({

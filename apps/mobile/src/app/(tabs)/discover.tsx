@@ -86,7 +86,7 @@ export default function DiscoverScreen() {
           <View style={styles.headerRow}>
             <View style={{ flex: 1 }}>
               <Text style={[styles.brand, { color: t.colors.textPrimary }]}>
-                Dots<Text style={{ color: t.accent }}>.</Text>
+                Dashboard<Text style={{ color: t.accent }}>.</Text>
               </Text>
             </View>
             <View>

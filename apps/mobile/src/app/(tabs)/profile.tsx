@@ -9,7 +9,6 @@ import { FIXTURE_FRIENDS } from '@dots/shared';
 import { NextPlanCard } from '@/components/profile/NextPlanCard';
 import { ProfileHeaderCard } from '@/components/profile/ProfileHeaderCard';
 import { SectionLabel } from '@/components/profile/SectionLabel';
-import { VibeChips } from '@/components/profile/VibeChips';
 import { listEventsByIds } from '@/data/events';
 import { isSupabaseConfigured } from '@/data/supabase';
 import { useAttendingIds } from '@/hooks/use-attendance';
@@ -38,7 +37,6 @@ export default function ProfileScreen() {
     profile.data?.username ??
     (displayName || email ? suggestUsername(displayName, email) : 'dots.developer');
   const bio = profile.data?.bio ?? null;
-  const interests = profile.data?.interests ?? [];
   const seed = profile.data?.id ?? name;
 
   const friendsCount = isSupabaseConfigured
@@ -118,27 +116,6 @@ export default function ProfileScreen() {
           ]}
         />
 
-        {/* Dein Vibe */}
-        <View style={styles.section}>
-          <SectionLabel title="Dein Vibe" />
-          {interests.length > 0 ? (
-            <VibeChips selected={interests} />
-          ) : (
-            <Pressable
-              onPress={() => router.push('/edit-profile')}
-              style={({ pressed }) => [
-                styles.vibePrompt,
-                { backgroundColor: t.colors.surface, borderColor: t.colors.border, opacity: pressed ? 0.8 : 1 },
-              ]}>
-              <Ionicons name="sparkles-outline" size={18} color={t.accent} />
-              <Text style={[styles.vibePromptText, { color: t.colors.textSecondary }]}>
-                Wähle deine Lieblingskategorien
-              </Text>
-              <Ionicons name="chevron-forward" size={16} color={t.colors.textMuted} />
-            </Pressable>
-          )}
-        </View>
-
         {/* Aktuelle Pläne */}
         <View style={styles.section}>
           <SectionLabel title="Aktuelle Pläne" />
@@ -169,14 +146,4 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   section: { marginTop: 24 },
-  vibePrompt: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-  },
-  vibePromptText: { flex: 1, fontSize: 14, fontWeight: '600' },
 });
