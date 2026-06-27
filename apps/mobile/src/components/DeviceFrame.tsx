@@ -25,14 +25,18 @@ export function DeviceFrame({ children }: PropsWithChildren) {
     return <>{children}</>;
   }
 
-  // Auf echten Handys / als installierte PWA (schmaler Viewport oder Standalone)
-  // KEIN Mockup-Rahmen — die App läuft im Vollbild mit echten Safe-Area-Insets.
-  // Der iPhone-Rahmen bleibt nur in der breiten Desktop-Vorschau.
+  // Echte Touch-Geräte (Handy/Tablet) oder installierte PWA: KEIN Mockup-Rahmen
+  // — die App läuft im Vollbild mit echten Safe-Area-Insets. Der iPhone-Rahmen
+  // erscheint nur in der Desktop-/Editor-Vorschau (Maus = „fine pointer") und
+  // skaliert dort auf jede Panel-Breite herunter. Wichtig: NICHT über die
+  // Fensterbreite erkennen — eine schmale Vorschau-Spalte ist kein Telefon.
   const standalone =
     typeof window !== 'undefined' &&
     (window.matchMedia?.('(display-mode: standalone)')?.matches ||
       (window.navigator as unknown as { standalone?: boolean }).standalone === true);
-  if (standalone || winW < 700) {
+  const isTouchDevice =
+    typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)')?.matches === true;
+  if (standalone || isTouchDevice) {
     return <>{children}</>;
   }
 
