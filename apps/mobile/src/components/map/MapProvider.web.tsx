@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { FRANKFURT_CENTER } from '@/lib/geo';
+import { buildMarkerIcon, MARKER_CSS, MARKER_ZOOM } from '@/lib/map-markers';
 import type { MapProviderProps } from './MapProvider';
 
 /**
  * MapProvider (Web) — echte Satelliten-Weltkarte via Leaflet (per CDN zur
  * Laufzeit geladen, sonst sprengt der window-Zugriff Expos Web-SSR). Zeigt EINEN
- * Pin pro Standort: Farbe = Kategorie, Größe = Beliebtheit, Zahl = Anzahl Events.
+ * DOTS-Marker pro Standort: Farbe = Kategorie, Größe = Beliebtheit, Zahl = Anzahl
+ * Events. Labels erscheinen progressiv mit dem Zoom (siehe lib/map-markers.ts).
  */
 
 const LEAFLET_VERSION = '1.9.4';
@@ -61,45 +63,13 @@ function loadLeaflet(): Promise<any> {
   return leafletPromise;
 }
 
+// Marker-Styles (Dot, Auswahl-Ring/Pulse, Label, Nutzerstandort) einmalig laden.
 function injectMarkerStyles() {
   if (document.getElementById(STYLE_ID)) return;
   const style = document.createElement('style');
   style.id = STYLE_ID;
-  style.textContent = `
-    .dots-pin { border-radius:50%; display:flex; align-items:center; justify-content:center;
-      transition: transform .12s ease; }
-    .dots-user { width: 22px; height: 22px; }
-    .dots-user::before { content:''; position:absolute; inset:0; border-radius:50%;
-      background: rgba(108,92,255,.35); animation: dots-pulse 1.8s ease-out infinite; }
-    .dots-user::after { content:''; position:absolute; top:50%; left:50%; width:14px; height:14px;
-      margin:-7px 0 0 -7px; border-radius:50%; background:#6C5CFF; border:3px solid #fff;
-      box-shadow: 0 1px 4px rgba(0,0,0,.4); }
-    @keyframes dots-pulse { 0%{transform:scale(.6);opacity:.9} 100%{transform:scale(2.4);opacity:0} }
-    .leaflet-container { background:#0b1622; font-family: inherit; }
-  `;
+  style.textContent = `${MARKER_CSS}\n.leaflet-container{font-family:inherit;}`;
   document.head.appendChild(style);
-}
-
-// Größe bewusst zierlich: ein einzelnes Event = kleiner Punkt; mehrere am
-// Standort = etwas größer + Zahl. Beliebtere Locations minimal größer.
-function pinSize(intensity: number, count: number, selected: boolean): number {
-  const base =
-    count > 1 ? 20 + Math.min(count, 6) * 2 + Math.round(intensity * 4) : 11 + Math.round(intensity * 6);
-  return selected ? base + 3 : base;
-}
-
-// Keine weiße Umrandung — stattdessen ein farbiges Leuchten (Glow) in der
-// Kategorie-Farbe, damit die Pins kräftig „leuchten".
-function pinHtml(color: string, intensity: number, count: number, selected: boolean): string {
-  const s = pinSize(intensity, count, selected);
-  const num =
-    count > 1
-      ? `<span style="color:#fff;font-weight:800;font-size:${Math.max(10, Math.round(s * 0.5))}px;">${count}</span>`
-      : '';
-  const glow = selected
-    ? `0 0 16px ${color},0 0 6px ${color},0 1px 4px rgba(0,0,0,.45)`
-    : `0 0 9px ${color}cc,0 1px 3px rgba(0,0,0,.3)`;
-  return `<div class="dots-pin" style="width:${s}px;height:${s}px;background:${color};box-shadow:${glow};">${num}</div>`;
 }
 
 export function MapProvider({
@@ -112,9 +82,12 @@ export function MapProvider({
   const mapRef = useRef<any>(null);
   const markersRef = useRef<any>(null);
   const userRef = useRef<any>(null);
+  const markersDataRef = useRef(markers);
+  markersDataRef.current = markers;
   const onSelectRef = useRef(onSelectMarker);
   onSelectRef.current = onSelectMarker;
   const [ready, setReady] = useState(false);
+  const [zoom, setZoom] = useState(FRANKFURT_ZOOM);
   const lastFocus = useRef(0);
 
   // Karte einmalig initialisieren.
@@ -139,6 +112,7 @@ export function MapProvider({
         L.tileLayer(SAT_TILES, { maxZoom: 19, attribution: ESRI_ATTR }).addTo(map);
         L.tileLayer(LABEL_TILES, { maxZoom: 19, opacity: 0.9 }).addTo(map);
         map.on('click', () => onSelectRef.current(null));
+        map.on('zoomend', () => setZoom(map.getZoom()));
 
         mapRef.current = map;
         markersRef.current = L.layerGroup().addTo(map);
@@ -155,18 +129,49 @@ export function MapProvider({
     };
   }, []);
 
-  // Standort-Pins (Venue-Gruppen) neu aufbauen.
+  // Standort-Pins (Venue-Gruppen) neu aufbauen — auch bei Zoomwechsel (Labels).
   useEffect(() => {
     const L = window.L;
+    const map = mapRef.current;
     const group = markersRef.current;
-    if (!ready || !L || !group) return;
+    if (!ready || !L || !map || !group) return;
     group.clearLayers();
+
+    const showLabel = zoom >= MARKER_ZOOM.label;
+    const showDetail = zoom >= MARKER_ZOOM.detail;
+
+    // Label-Declutter: nur räumlich nicht-kollidierende Labels zeigen — Priorität
+    // hat der ausgewählte Marker, danach Beliebtheit. Pixelabstände hängen nur am
+    // Zoom (nicht am Pan), daher genügt ein Rebuild bei Zoomwechsel.
+    const labelled = new Set<string>();
+    if (showLabel) {
+      const pts = markers.map((m) => ({ m, p: map.latLngToContainerPoint([m.lat, m.lon]) }));
+      pts.sort((a, b) => {
+        const sa = a.m.key === selectedKey ? 1 : 0;
+        const sb = b.m.key === selectedKey ? 1 : 0;
+        if (sa !== sb) return sb - sa;
+        return b.m.intensity - a.m.intensity;
+      });
+      const placed: { x: number; y: number }[] = [];
+      const MIN_PX = 64;
+      for (const { m, p } of pts) {
+        if (placed.some((q) => Math.hypot(q.x - p.x, q.y - p.y) < MIN_PX)) continue;
+        labelled.add(m.key);
+        placed.push(p);
+      }
+    }
+
     markers.forEach((m) => {
       const selected = m.key === selectedKey;
-      const size = pinSize(m.intensity, m.count, selected);
+      const withLabel = showLabel && labelled.has(m.key);
+      const { html, size } = buildMarkerIcon(m, {
+        selected,
+        showLabel: withLabel,
+        showDetail: showDetail && withLabel,
+      });
       const icon = L.divIcon({
-        className: 'dots-pin-wrap',
-        html: pinHtml(m.color, m.intensity, m.count, selected),
+        className: 'dots-marker-icon',
+        html,
         iconSize: [size, size],
         iconAnchor: [size / 2, size / 2],
       });
@@ -181,15 +186,16 @@ export function MapProvider({
       });
       marker.addTo(group);
     });
-  }, [markers, selectedKey, ready]);
+  }, [markers, selectedKey, ready, zoom]);
 
-  // Bei Auswahl sanft zum Pin schwenken (Sheet verdeckt unten).
+  // Bei Auswahl sanft zum Pin schwenken (Sheet verdeckt unten). Nur an
+  // `selectedKey` gekoppelt — reine Listen-Updates lösen kein Re-Pan aus.
   useEffect(() => {
     const map = mapRef.current;
     if (!ready || !map || !selectedKey) return;
-    const m = markers.find((x) => x.key === selectedKey);
+    const m = markersDataRef.current.find((x) => x.key === selectedKey);
     if (m) map.panTo([m.lat, m.lon], { animate: true });
-  }, [selectedKey, ready, markers]);
+  }, [selectedKey, ready]);
 
   // Nutzerstandort-Marker.
   useEffect(() => {
@@ -216,8 +222,8 @@ export function MapProvider({
     if (!ready || !map || !focus) return;
     if (focus.nonce === lastFocus.current) return;
     lastFocus.current = focus.nonce;
-    const zoom = focus.zoom ?? Math.max(map.getZoom(), 15);
-    map.flyTo([focus.point.lat, focus.point.lon], zoom, { duration: 0.8 });
+    const targetZoom = focus.zoom ?? Math.max(map.getZoom(), 15);
+    map.flyTo([focus.point.lat, focus.point.lon], targetZoom, { duration: 0.8 });
   }, [focus, ready]);
 
   return <View nativeID={MAP_ID} style={styles.fill} />;

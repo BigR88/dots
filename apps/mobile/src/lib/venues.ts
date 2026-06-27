@@ -1,4 +1,5 @@
 import type { DotsEvent, GeoPoint } from '@dots/shared';
+import { formatTime } from '@/lib/format';
 
 /**
  * Mehrere Events am selben Standort werden zu einer Gruppe zusammengefasst, damit
@@ -71,9 +72,19 @@ export interface VenueMarker {
   intensity: number;
   /** Kategorie-Farbe des beliebtesten Events am Standort (Pin-Farbe). */
   color: string;
+  /** Location-Name (Label ab mittlerem Zoom). */
+  venueName: string;
+  /** Kategorie-Name des Headline-Events (für spätere Nutzung/Tooltips). */
+  categoryName: string;
+  /** Genre des Headline-Events (Detail-Label bei hohem Zoom). */
+  genre: string | null;
+  /** Startuhrzeit „HH:MM" des Headline-Events (Detail-Label bei hohem Zoom). */
+  timeLabel: string | null;
 }
 
-const FALLBACK_COLOR = '#6C5CFF';
+// Neutral (Slate) für Events ohne Kategorie-Farbe — Marken-Lila bleibt
+// ausschließlich aktiven Markern + CTAs vorbehalten.
+const FALLBACK_COLOR = '#94A3B8';
 
 /**
  * Wandelt Gruppen in Map-Marker um. Farbe = Kategorie (vom beliebtesten Event
@@ -91,6 +102,10 @@ export function toVenueMarkers(groups: VenueGroup[]): VenueMarker[] {
       count: g.events.length,
       intensity: Math.min(1, g.popularity / maxPop),
       color: top.category?.color ?? FALLBACK_COLOR,
+      venueName: g.venueName,
+      categoryName: top.category?.name ?? 'Event',
+      genre: top.musicGenre,
+      timeLabel: formatTime(top.startAt),
     };
   });
 }

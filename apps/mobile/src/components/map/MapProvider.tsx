@@ -1,14 +1,16 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 import type { GeoPoint } from '@dots/shared';
+import { buildMarkerIcon, MARKER_CSS, MARKER_ZOOM } from '@/lib/map-markers';
 import type { VenueMarker } from '@/lib/venues';
 
 /**
  * MapProvider (Native) — echte Satelliten-Karte auf dem Gerät (WebView+Leaflet,
- * gleiche Quelle wie Web). Zeigt EINEN Pin pro Standort (Venue-Gruppe): Farbe =
- * Kategorie, Größe = Beliebtheit, Zahl = Anzahl Events am Standort.
- * Kommunikation via `postMessage` (Auswahl) / `injectJavaScript` (Daten rein).
+ * gleiche Quelle wie Web). Das Marker-HTML wird in TS gebaut (lib/map-markers.ts,
+ * identisch zum Web) und per JSON in die WebView gereicht; die WebView ist nur
+ * noch „dummer" Renderer. Labels erscheinen progressiv mit dem Zoom — dazu meldet
+ * die WebView ihren Zoom zurück, und die Marker werden neu gebaut.
  */
 export interface MapProviderProps {
   /** Gruppierte Standort-Marker (ein Pin je Venue). */
@@ -21,8 +23,10 @@ export interface MapProviderProps {
   focus?: { point: GeoPoint; nonce: number; zoom?: number } | null;
 }
 
-// Selbst-genügsames HTML mit Leaflet. Pins: Lila-Skala nach Beliebtheit, Größe
-// nach Beliebtheit/Anzahl, Zahl bei mehreren Events am selben Standort.
+const FRANKFURT_ZOOM = 12.5;
+
+// Selbst-genügsames HTML mit Leaflet. Marker-Styles kommen aus MARKER_CSS
+// (geteilt mit Web); die Marker selbst werden als fertiges HTML eingespielt.
 const MAP_HTML = `<!DOCTYPE html>
 <html>
 <head>
@@ -30,12 +34,8 @@ const MAP_HTML = `<!DOCTYPE html>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
   html,body,#map{height:100%;margin:0;background:#0b1622}
-  .dots-pin{border-radius:50%;display:flex;align-items:center;justify-content:center}
-  .dots-user{width:22px;height:22px}
-  .dots-user::before{content:'';position:absolute;inset:0;border-radius:50%;background:rgba(108,92,255,.35);animation:dp 1.8s ease-out infinite}
-  .dots-user::after{content:'';position:absolute;top:50%;left:50%;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;background:#6C5CFF;border:3px solid #fff}
-  @keyframes dp{0%{transform:scale(.6);opacity:.9}100%{transform:scale(2.4);opacity:0}}
   .leaflet-control-attribution{display:none}
+  ${MARKER_CSS}
 </style>
 </head>
 <body>
@@ -44,20 +44,18 @@ const MAP_HTML = `<!DOCTYPE html>
 <script>
 (function(){
   function send(o){ if(window.ReactNativeWebView){ window.ReactNativeWebView.postMessage(JSON.stringify(o)); } }
-  var map=L.map('map',{zoomControl:false,attributionControl:false,minZoom:11,maxZoom:19,maxBounds:[[49.85,8.3],[50.4,9.05]],maxBoundsViscosity:1,zoomSnap:.5}).setView([50.113,8.682],12.5);
+  var map=L.map('map',{zoomControl:false,attributionControl:false,minZoom:11,maxZoom:19,maxBounds:[[49.85,8.3],[50.4,9.05]],maxBoundsViscosity:1,zoomSnap:.5}).setView([50.113,8.682],${FRANKFURT_ZOOM});
   L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19}).addTo(map);
   L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,opacity:.9}).addTo(map);
   map.on('click',function(){ send({type:'select',key:null}); });
+  map.on('zoomend',function(){ send({type:'zoom',zoom:map.getZoom()}); });
   var group=L.layerGroup().addTo(map);
   var userMarker=null;
-  function pinSize(it,count,sel){ var base=count>1 ? 20+Math.min(count,6)*2+Math.round(it*4) : 11+Math.round(it*6); return sel?base+3:base; }
-  function pinHtml(color,it,count,sel){ var s=pinSize(it,count,sel); var num=count>1 ? '<span style="color:#fff;font-weight:800;font-size:'+Math.max(10,Math.round(s*0.5))+'px;">'+count+'</span>' : ''; var glow=sel ? '0 0 16px '+color+',0 0 6px '+color+',0 1px 4px rgba(0,0,0,.45)' : '0 0 9px '+color+'cc,0 1px 3px rgba(0,0,0,.3)'; return '<div class="dots-pin" style="width:'+s+'px;height:'+s+'px;background:'+color+';box-shadow:'+glow+'">'+num+'</div>'; }
-  window.setMarkers=function(markers,selectedKey){
+  window.setMarkers=function(list){
     group.clearLayers();
-    (markers||[]).forEach(function(m){
-      var sel=m.key===selectedKey; var s=pinSize(m.intensity,m.count,sel);
-      var icon=L.divIcon({className:'',html:pinHtml(m.color,m.intensity,m.count,sel),iconSize:[s,s],iconAnchor:[s/2,s/2]});
-      var mk=L.marker([m.lat,m.lon],{icon:icon,zIndexOffset:sel?1000:0});
+    (list||[]).forEach(function(m){
+      var icon=L.divIcon({className:'dots-marker-icon',html:m.html,iconSize:[m.w,m.w],iconAnchor:[m.w/2,m.w/2]});
+      var mk=L.marker([m.lat,m.lon],{icon:icon,zIndexOffset:m.sel?1000:0});
       mk.on('click',function(e){ if(e&&e.originalEvent){ L.DomEvent.stopPropagation(e.originalEvent); } send({type:'select',key:m.key}); });
       mk.addTo(group);
     });
@@ -69,6 +67,7 @@ const MAP_HTML = `<!DOCTYPE html>
     else { userMarker=L.marker(ll,{icon:L.divIcon({className:'dots-user',html:'',iconSize:[22,22],iconAnchor:[11,11]}),interactive:false,zIndexOffset:500}).addTo(map); }
   };
   window.doFocus=function(f){ if(!f||!f.point)return; map.flyTo([f.point.lat,f.point.lon], f.zoom||Math.max(map.getZoom(),15), {duration:.8}); };
+  window.doPan=function(p){ if(!p)return; map.panTo([p.lat,p.lon],{animate:true}); };
   setTimeout(function(){ map.invalidateSize(); send({type:'ready'}); },60);
 })();
 </script>
@@ -85,6 +84,9 @@ export function MapProvider({
   const webRef = useRef<WebView>(null);
   const ready = useRef(false);
   const lastFocus = useRef(0);
+  const [zoom, setZoom] = useState(FRANKFURT_ZOOM);
+  const markersDataRef = useRef(markers);
+  markersDataRef.current = markers;
   const onSelectRef = useRef(onSelectMarker);
   onSelectRef.current = onSelectMarker;
 
@@ -93,8 +95,16 @@ export function MapProvider({
   }, []);
 
   const pushMarkers = useCallback(() => {
-    run(`window.setMarkers && window.setMarkers(${JSON.stringify(markers)}, ${JSON.stringify(selectedKey)})`);
-  }, [markers, selectedKey, run]);
+    // Marker-HTML in TS bauen (gleiche Quelle wie Web), nur Geometrie + HTML rein.
+    const showLabel = zoom >= MARKER_ZOOM.label;
+    const showDetail = zoom >= MARKER_ZOOM.detail;
+    const payload = markers.map((m) => {
+      const selected = m.key === selectedKey;
+      const { html, size } = buildMarkerIcon(m, { selected, showLabel, showDetail });
+      return { key: m.key, lat: m.lat, lon: m.lon, html, w: size, sel: selected };
+    });
+    run(`window.setMarkers && window.setMarkers(${JSON.stringify(payload)})`);
+  }, [markers, selectedKey, zoom, run]);
 
   const pushUser = useCallback(() => {
     const loc = userLocation ? { lat: userLocation.lat, lon: userLocation.lon } : null;
@@ -114,8 +124,15 @@ export function MapProvider({
     }
   }, [focus, run]);
 
+  // Bei Auswahl zum Pin schwenken (Parität zum Web; Sheet verdeckt unten).
+  useEffect(() => {
+    if (!ready.current || !selectedKey) return;
+    const m = markersDataRef.current.find((x) => x.key === selectedKey);
+    if (m) run(`window.doPan && window.doPan(${JSON.stringify({ lat: m.lat, lon: m.lon })})`);
+  }, [selectedKey, run]);
+
   const onMessage = (e: WebViewMessageEvent) => {
-    let msg: { type?: string; key?: string | null };
+    let msg: { type?: string; key?: string | null; zoom?: number };
     try {
       msg = JSON.parse(e.nativeEvent.data);
     } catch {
@@ -129,6 +146,8 @@ export function MapProvider({
         lastFocus.current = focus.nonce;
         run(`window.doFocus && window.doFocus(${JSON.stringify(focus)})`);
       }
+    } else if (msg.type === 'zoom' && typeof msg.zoom === 'number') {
+      setZoom(msg.zoom);
     } else if (msg.type === 'select') {
       onSelectRef.current(msg.key ?? null);
     }

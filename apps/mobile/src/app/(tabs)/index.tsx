@@ -1,18 +1,17 @@
 import { useQuery } from '@tanstack/react-query';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { LayoutAnimation, Platform, Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { GeoPoint, QuickFilterId, TimeValue } from '@dots/shared';
 import { DateBar } from '@/components/DateBar';
 import { DateOverlay } from '@/components/DateOverlay';
-import { EventPreviewSheet } from '@/components/EventPreviewSheet';
+import { EventBottomSheet } from '@/components/EventBottomSheet';
 import { FilterPanel } from '@/components/FilterPanel';
 import { FloatingMapActions } from '@/components/FloatingMapActions';
 import { FloatingMapHeader } from '@/components/FloatingMapHeader';
 import { MapProvider } from '@/components/map/MapProvider';
-import { VenueSheet } from '@/components/VenueSheet';
 import { listEvents, type EventQuery } from '@/data/events';
 import { isoDay } from '@/lib/time';
 import { groupEventsByVenue, toVenueMarkers } from '@/lib/venues';
@@ -67,6 +66,23 @@ export default function MapScreen() {
   const selectedGroup = useMemo(
     () => groups.find((g) => g.key === selectedKey) ?? null,
     [groups, selectedKey],
+  );
+
+  // Auswahl verwerfen, wenn die gewählte Venue-Gruppe (durch Datum/Filter/Suche)
+  // aus dem Ergebnis fällt — verhindert ein „hängendes" Sheet auf totem Key.
+  useEffect(() => {
+    if (selectedKey && !groups.some((g) => g.key === selectedKey)) setSelectedKey(null);
+  }, [groups, selectedKey]);
+
+  // Beim Verlassen des Karten-Tabs offene Overlays schließen, damit ein Tab-Tap
+  // keinen „offenen" Zustand hinterlässt (Sheet/Filter sind In-Screen-Overlays).
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        setSelectedKey(null);
+        setOpen(false);
+      };
+    }, []),
   );
 
   const toggleCategory = (slug: string) =>
@@ -158,18 +174,16 @@ export default function MapScreen() {
         />
       )}
 
-      {/* Auswahl: ein Event → Vorschau-Card, mehrere am Standort → Venue-Sheet */}
-      {selectedGroup &&
-        (selectedGroup.events.length === 1 ? (
-          <EventPreviewSheet
-            event={selectedGroup.events[0]}
-            userLocation={shownLocation}
-            onOpen={() => openEvent(selectedGroup.events[0].id)}
-            onClose={() => setSelectedKey(null)}
-          />
-        ) : (
-          <VenueSheet group={selectedGroup} onOpenEvent={openEvent} onClose={() => setSelectedKey(null)} />
-        ))}
+      {/* Auswahl → Premium-Bottom-Sheet (ein Event oder mehrere am Standort) */}
+      {selectedGroup && (
+        <EventBottomSheet
+          key={selectedGroup.key}
+          group={selectedGroup}
+          userLocation={shownLocation}
+          onOpenEvent={openEvent}
+          onClose={() => setSelectedKey(null)}
+        />
+      )}
 
       {/* Aufziehbares Glas-Filterpanel (identisch zu „Entdecken") */}
       {open && (
