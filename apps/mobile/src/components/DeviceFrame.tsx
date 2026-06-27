@@ -42,7 +42,9 @@ export function DeviceFrame({ children }: PropsWithChildren) {
 
   const totalW = SCREEN_W + BEZEL * 2;
   const totalH = SCREEN_H + BEZEL * 2;
-  const scale = Math.min(1, (winH - 32) / totalH, (winW - 32) / totalW);
+  // Rundherum etwas Luft lassen, damit der Rahmen nie an den Panel-Kanten klebt.
+  const MARGIN = 28;
+  const scale = Math.min(1, (winH - MARGIN * 2) / totalH, (winW - MARGIN * 2) / totalW);
   const dark = t.scheme === 'dark';
 
   return (
@@ -80,10 +82,6 @@ export function DeviceFrame({ children }: PropsWithChildren) {
           />
         </View>
       </View>
-
-      <Text style={[styles.caption, { color: dark ? '#5A6170' : '#9AA3B2' }]}>
-        iPhone-Vorschau · auf dem Handy via Expo Go
-      </Text>
     </View>
   );
 }
@@ -145,5 +143,4 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     opacity: 0.35,
   },
-  caption: { position: 'absolute', bottom: 12, fontSize: 12, fontWeight: '500' },
 });
