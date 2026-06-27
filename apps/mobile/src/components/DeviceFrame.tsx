@@ -45,10 +45,10 @@ export function DeviceFrame({ children }: PropsWithChildren) {
   // Rundherum etwas Luft lassen, damit der Rahmen nie an den Panel-Kanten klebt.
   const MARGIN = 28;
   const scale = Math.min(1, (winH - MARGIN * 2) / totalH, (winW - MARGIN * 2) / totalW);
-  const dark = t.scheme === 'dark';
 
   return (
-    <View style={[styles.backdrop, { backgroundColor: dark ? '#0A0C10' : '#E8EBF1' }]}>
+    // Bühne transparent — nimmt den Hintergrund der Vorschau/Seite an (kein Grau).
+    <View style={styles.backdrop}>
       <View style={[styles.phone, { width: totalW, height: totalH, transform: [{ scale }] }]}>
         {/* Seitentasten (Deko) */}
         <View style={[styles.sideBtn, { left: -2.5, top: 150, height: 28 }]} />
