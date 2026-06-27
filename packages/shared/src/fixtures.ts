@@ -99,6 +99,19 @@ const SEED: Seed[] = [
 /** Alle Demo-Venues (z. B. für Auswahllisten im Admin). */
 export const FIXTURE_VENUES: Venue[] = Object.values(VENUES);
 
+// Die Demo-Events sind fix auf den 11.–21. Juni datiert. Damit der Demo-Modus
+// IMMER aktuelle Events zeigt (unabhängig vom heutigen Datum), verschieben wir
+// alle Zeiten so, dass der früheste Demo-Tag auf „heute" fällt. Die relativen
+// Abstände bleiben erhalten — gleiche Venue-Gruppen pro Tag → korrekte Pins.
+const SEED_EARLIEST_MS = new Date('2026-06-11T00:00:00+02:00').getTime();
+const SEED_SHIFT_MS = (() => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return today.getTime() - SEED_EARLIEST_MS;
+})();
+const shiftSeedTime = (iso: string): string =>
+  new Date(new Date(iso).getTime() + SEED_SHIFT_MS).toISOString();
+
 export const FIXTURE_EVENTS: DotsEvent[] = SEED.map((s) => {
   const venue = VENUES[s.venue];
   return {
@@ -106,8 +119,8 @@ export const FIXTURE_EVENTS: DotsEvent[] = SEED.map((s) => {
     title: s.title,
     description: s.description,
     status: 'published',
-    startAt: s.start,
-    endAt: s.end,
+    startAt: shiftSeedTime(s.start),
+    endAt: shiftSeedTime(s.end),
     doorsAt: null,
     venueId: venue.id,
     venue,

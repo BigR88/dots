@@ -8,7 +8,7 @@ import { AuthScreen } from '@/components/AuthScreen';
 import { DeviceFrame } from '@/components/DeviceFrame';
 import { queryClient } from '@/data/query-client';
 import { useAttendanceSync } from '@/hooks/use-attendance';
-import { AuthProvider, isSupabaseConfigured, useAuth } from '@/hooks/use-auth';
+import { AUTH_DISABLED, AuthProvider, isSupabaseConfigured, useAuth } from '@/hooks/use-auth';
 import { useTheme } from '@/theme/theme';
 
 export default function RootLayout() {
@@ -35,8 +35,9 @@ function AuthGate() {
   const { session, loading } = useAuth();
   useAttendanceSync(); // hält „Bin dabei" mit der Session synchron
 
-  // Ohne Backend (Demo) kein Gate — App direkt zeigen.
-  if (isSupabaseConfigured) {
+  // Ohne Backend (Demo) oder mit Dev-Bypass (AUTH_DISABLED) kein Gate — App
+  // direkt zeigen. Login kommt später; der Code dafür bleibt erhalten.
+  if (isSupabaseConfigured && !AUTH_DISABLED) {
     if (loading) {
       return (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: t.colors.background }}>
