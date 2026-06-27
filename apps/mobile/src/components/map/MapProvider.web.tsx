@@ -1,8 +1,19 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { FRANKFURT_CENTER } from '@/lib/geo';
 import { buildMarkerIcon, MARKER_CSS, MARKER_ZOOM } from '@/lib/map-markers';
+import {
+  DISTRICT_BOX,
+  DISTRICT_CSS,
+  districtLabelHtml,
+  visibleDistricts,
+} from '@/lib/districts';
 import type { MapProviderProps } from './MapProvider';
+
+// Sicht-Tabuzonen (px) für Stadtteil-Labels: nicht unter Header/Datumsleiste
+// oben bzw. der schwebenden Tab-Leiste unten kleben.
+const DISTRICT_SAFE_TOP = 160;
+const DISTRICT_SAFE_BOTTOM = 120;
 
 /**
  * MapProvider (Web) — echte Satelliten-Weltkarte via Leaflet (per CDN zur
@@ -68,7 +79,7 @@ function injectMarkerStyles() {
   if (document.getElementById(STYLE_ID)) return;
   const style = document.createElement('style');
   style.id = STYLE_ID;
-  style.textContent = `${MARKER_CSS}\n.leaflet-container{font-family:inherit;}`;
+  style.textContent = `${MARKER_CSS}\n${DISTRICT_CSS}\n.leaflet-container{font-family:inherit;}`;
   document.head.appendChild(style);
 }
 
@@ -82,6 +93,12 @@ export function MapProvider({
   const mapRef = useRef<any>(null);
   const markersRef = useRef<any>(null);
   const userRef = useRef<any>(null);
+  const tintRef = useRef<HTMLDivElement | null>(null);
+  const districtRef = useRef<any>(null);
+  const renderDistrictsRef = useRef<() => void>(() => {});
+  // Keys der aktuell beschrifteten Marker — nur DEREN Labels sind für Stadtteil-
+  // Labels tabu (bei niedrigem Zoom ohne Event-Labels stehen Stadtteile frei).
+  const labelledKeysRef = useRef<Set<string>>(new Set());
   const markersDataRef = useRef(markers);
   markersDataRef.current = markers;
   const onSelectRef = useRef(onSelectMarker);
@@ -89,6 +106,45 @@ export function MapProvider({
   const [ready, setReady] = useState(false);
   const [zoom, setZoom] = useState(FRANKFURT_ZOOM);
   const lastFocus = useRef(0);
+
+  // Stadtteil-Labels rendern: zoomabhängig (visibleDistricts), nicht in den
+  // Sicht-Tabuzonen oben/unten, und mit Vorrang für Event-Marker (Stadtteile
+  // weichen Markern + sich gegenseitig nach Priorität aus). Pixelabstände hängen
+  // am Zoom UND am Pan (Tabuzonen), daher Rebuild auch bei moveend.
+  const renderDistricts = useCallback(() => {
+    const L = window.L;
+    const map = mapRef.current;
+    const grp = districtRef.current;
+    if (!L || !map || !grp) return;
+    grp.clearLayers();
+    const z = map.getZoom();
+    const size = map.getSize();
+    // Nur die Positionen BESCHRIFTETER Event-Marker sind tabu (deren Pills haben
+    // Vorrang). Ohne Event-Labels (niedriger Zoom) stehen Stadtteile frei.
+    const placed = markersDataRef.current
+      .filter((m) => labelledKeysRef.current.has(m.key))
+      .map((m) => map.latLngToContainerPoint([m.lat, m.lon]));
+    visibleDistricts(z).forEach((d) => {
+      const p = map.latLngToContainerPoint([d.lat, d.lon]);
+      if (
+        p.x < 10 ||
+        p.x > size.x - 10 ||
+        p.y < DISTRICT_SAFE_TOP ||
+        p.y > size.y - DISTRICT_SAFE_BOTTOM
+      )
+        return;
+      if (placed.some((q: any) => Math.abs(q.x - p.x) < 70 && Math.abs(q.y - p.y) < 40)) return;
+      placed.push(p);
+      const icon = L.divIcon({
+        className: 'dots-district-icon',
+        html: districtLabelHtml(d.name, z >= 16),
+        iconSize: DISTRICT_BOX,
+        iconAnchor: [DISTRICT_BOX[0] / 2, DISTRICT_BOX[1] / 2],
+      });
+      L.marker([d.lat, d.lon], { icon, pane: 'dotsDistricts', interactive: false, keyboard: false }).addTo(grp);
+    });
+  }, []);
+  renderDistrictsRef.current = renderDistricts;
 
   // Karte einmalig initialisieren.
   useEffect(() => {
@@ -110,20 +166,39 @@ export function MapProvider({
         }).setView([FRANKFURT_CENTER.lat, FRANKFURT_CENTER.lon], FRANKFURT_ZOOM);
 
         L.tileLayer(SAT_TILES, { maxZoom: 19, attribution: ESRI_ATTR }).addTo(map);
-        L.tileLayer(LABEL_TILES, { maxZoom: 19, opacity: 0.9 }).addTo(map);
+        L.tileLayer(LABEL_TILES, { maxZoom: 19, opacity: 0.55 }).addTo(map);
         map.on('click', () => onSelectRef.current(null));
         map.on('zoomend', () => setZoom(map.getZoom()));
+
+        // Nightlife-Vignette (viewport-fix) über der Karte; Mitte transparent.
+        const tint = document.createElement('div');
+        tint.className = 'dots-map-tint';
+        el.appendChild(tint);
+        tintRef.current = tint;
+
+        // Eigener Pane für Stadtteil-Labels: über den Kacheln, UNTER den Markern.
+        map.createPane('dotsDistricts');
+        const dpane = map.getPane('dotsDistricts');
+        if (dpane) {
+          dpane.style.zIndex = '360';
+          dpane.style.pointerEvents = 'none';
+        }
+        districtRef.current = L.layerGroup().addTo(map);
+        map.on('moveend', () => renderDistrictsRef.current());
 
         mapRef.current = map;
         markersRef.current = L.layerGroup().addTo(map);
         setTimeout(() => map.invalidateSize(), 60);
         setReady(true);
+        renderDistrictsRef.current();
       })
       .catch(() => {
         /* offline / CDN blockiert — Karte bleibt leer, App läuft weiter */
       });
     return () => {
       cancelled = true;
+      tintRef.current?.remove();
+      tintRef.current = null;
       mapRef.current?.remove();
       mapRef.current = null;
     };
@@ -152,14 +227,18 @@ export function MapProvider({
         if (sa !== sb) return sb - sa;
         return b.m.intensity - a.m.intensity;
       });
+      // Rechteckige Kollision statt Kreis: Labels sind breit (max-width 160px),
+      // daher horizontal großzügiger Abstand, vertikal eng (Label-Höhe).
       const placed: { x: number; y: number }[] = [];
-      const MIN_PX = 64;
+      const DX = 118;
+      const DY = 26;
       for (const { m, p } of pts) {
-        if (placed.some((q) => Math.hypot(q.x - p.x, q.y - p.y) < MIN_PX)) continue;
+        if (placed.some((q) => Math.abs(q.x - p.x) < DX && Math.abs(q.y - p.y) < DY)) continue;
         labelled.add(m.key);
         placed.push(p);
       }
     }
+    labelledKeysRef.current = labelled;
 
     markers.forEach((m) => {
       const selected = m.key === selectedKey;
@@ -186,7 +265,10 @@ export function MapProvider({
       });
       marker.addTo(group);
     });
-  }, [markers, selectedKey, ready, zoom]);
+
+    // Stadtteil-Labels nach dem Marker-Rebuild aktualisieren (weichen Markern aus).
+    renderDistricts();
+  }, [markers, selectedKey, ready, zoom, renderDistricts]);
 
   // Bei Auswahl sanft zum Pin schwenken (Sheet verdeckt unten). Nur an
   // `selectedKey` gekoppelt — reine Listen-Updates lösen kein Re-Pan aus.

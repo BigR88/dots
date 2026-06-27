@@ -3,6 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 import type { GeoPoint } from '@dots/shared';
 import { buildMarkerIcon, MARKER_CSS, MARKER_ZOOM } from '@/lib/map-markers';
+import { DISTRICTS, DISTRICT_CSS } from '@/lib/districts';
 import type { VenueMarker } from '@/lib/venues';
 
 /**
@@ -36,6 +37,7 @@ const MAP_HTML = `<!DOCTYPE html>
   html,body,#map{height:100%;margin:0;background:#0b1622}
   .leaflet-control-attribution{display:none}
   ${MARKER_CSS}
+  ${DISTRICT_CSS}
 </style>
 </head>
 <body>
@@ -46,19 +48,54 @@ const MAP_HTML = `<!DOCTYPE html>
   function send(o){ if(window.ReactNativeWebView){ window.ReactNativeWebView.postMessage(JSON.stringify(o)); } }
   var map=L.map('map',{zoomControl:false,attributionControl:false,minZoom:11,maxZoom:19,maxBounds:[[49.85,8.3],[50.4,9.05]],maxBoundsViscosity:1,zoomSnap:.5}).setView([50.113,8.682],${FRANKFURT_ZOOM});
   L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19}).addTo(map);
-  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,opacity:.9}).addTo(map);
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,opacity:.55}).addTo(map);
   map.on('click',function(){ send({type:'select',key:null}); });
   map.on('zoomend',function(){ send({type:'zoom',zoom:map.getZoom()}); });
+  var tint=document.createElement('div'); tint.className='dots-map-tint'; document.getElementById('map').appendChild(tint);
+  // Stadtteil-Labels: eigener Pane über den Kacheln, unter den Markern.
+  map.createPane('dotsDistricts'); map.getPane('dotsDistricts').style.zIndex=360; map.getPane('dotsDistricts').style.pointerEvents='none';
+  var DISTRICTS=${JSON.stringify(DISTRICTS)};
+  var dgrp=L.layerGroup().addTo(map);
+  var labelledLL=[]; // LatLngs der beschrifteten Marker — nur deren Labels sind tabu
+  function renderDistricts(){
+    dgrp.clearLayers();
+    var z=map.getZoom(), size=map.getSize(), TOP=160, BOT=120, EDGE=10;
+    var placed=labelledLL.map(function(ll){ return map.latLngToContainerPoint(ll); });
+    DISTRICTS.filter(function(d){ return z>=d.minZoom && (d.maxZoom==null||z<=d.maxZoom); })
+      .sort(function(a,b){ return b.priority-a.priority; })
+      .forEach(function(d){
+        var p=map.latLngToContainerPoint([d.lat,d.lon]);
+        if(p.x<EDGE||p.x>size.x-EDGE||p.y<TOP||p.y>size.y-BOT) return;
+        if(placed.some(function(q){ return Math.abs(q.x-p.x)<70 && Math.abs(q.y-p.y)<40; })) return;
+        placed.push(p);
+        var dim=z>=16;
+        var icon=L.divIcon({className:'dots-district-icon',html:'<div class="dots-district'+(dim?' is-dim':'')+'">'+d.name+'</div>',iconSize:[170,20],iconAnchor:[85,10]});
+        L.marker([d.lat,d.lon],{icon:icon,pane:'dotsDistricts',interactive:false,keyboard:false}).addTo(dgrp);
+      });
+  }
+  map.on('zoomend moveend',renderDistricts);
   var group=L.layerGroup().addTo(map);
   var userMarker=null;
   window.setMarkers=function(list){
     group.clearLayers();
-    (list||[]).forEach(function(m){
-      var icon=L.divIcon({className:'dots-marker-icon',html:m.html,iconSize:[m.w,m.w],iconAnchor:[m.w/2,m.w/2]});
+    list=list||[];
+    // Label-Declutter (Parität zum Web): nur kollisionsfreie Labels — Priorität
+    // Auswahl, dann Beliebtheit; rechteckige Kollision (Labels sind breit).
+    var withLabel={};
+    if(list.length){
+      var pts=list.map(function(m){ return {m:m,p:map.latLngToContainerPoint([m.lat,m.lon])}; });
+      pts.sort(function(a,b){ var sa=a.m.sel?1:0, sb=b.m.sel?1:0; if(sa!==sb)return sb-sa; return (b.m.intensity||0)-(a.m.intensity||0); });
+      var pl=[];
+      pts.forEach(function(o){ if(!o.m.canLabel)return; if(pl.some(function(q){return Math.abs(q.x-o.p.x)<118 && Math.abs(q.y-o.p.y)<26;}))return; pl.push(o.p); withLabel[o.m.key]=true; });
+    }
+    labelledLL=list.filter(function(m){return withLabel[m.key];}).map(function(m){return [m.lat,m.lon];});
+    list.forEach(function(m){
+      var icon=L.divIcon({className:'dots-marker-icon',html:withLabel[m.key]?m.htmlL:m.htmlP,iconSize:[m.w,m.w],iconAnchor:[m.w/2,m.w/2]});
       var mk=L.marker([m.lat,m.lon],{icon:icon,zIndexOffset:m.sel?1000:0});
       mk.on('click',function(e){ if(e&&e.originalEvent){ L.DomEvent.stopPropagation(e.originalEvent); } send({type:'select',key:m.key}); });
       mk.addTo(group);
     });
+    renderDistricts();
   };
   window.setUser=function(loc){
     if(!loc){ if(userMarker){ map.removeLayer(userMarker); userMarker=null; } return; }
@@ -95,13 +132,25 @@ export function MapProvider({
   }, []);
 
   const pushMarkers = useCallback(() => {
-    // Marker-HTML in TS bauen (gleiche Quelle wie Web), nur Geometrie + HTML rein.
-    const showLabel = zoom >= MARKER_ZOOM.label;
+    // Marker-HTML in TS bauen (gleiche Quelle wie Web). Pro Marker zwei Varianten
+    // (mit/ohne Label) + canLabel — den Declutter macht die WebView per Projektion.
+    const canLabel = zoom >= MARKER_ZOOM.label;
     const showDetail = zoom >= MARKER_ZOOM.detail;
     const payload = markers.map((m) => {
       const selected = m.key === selectedKey;
-      const { html, size } = buildMarkerIcon(m, { selected, showLabel, showDetail });
-      return { key: m.key, lat: m.lat, lon: m.lon, html, w: size, sel: selected };
+      const labeled = buildMarkerIcon(m, { selected, showLabel: true, showDetail });
+      const plain = buildMarkerIcon(m, { selected, showLabel: false, showDetail: false });
+      return {
+        key: m.key,
+        lat: m.lat,
+        lon: m.lon,
+        w: plain.size,
+        sel: selected,
+        intensity: m.intensity,
+        canLabel,
+        htmlL: labeled.html,
+        htmlP: plain.html,
+      };
     });
     run(`window.setMarkers && window.setMarkers(${JSON.stringify(payload)})`);
   }, [markers, selectedKey, zoom, run]);
