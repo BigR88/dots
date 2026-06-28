@@ -26,6 +26,16 @@ interface AuthState {
 
 const AuthContext = createContext<AuthState | null>(null);
 
+/**
+ * Erlaubt Login/Registrierung mit bloßem Nutzernamen statt voller E-Mail:
+ * "yannik" → "yannik@dots.app". Enthält die Eingabe bereits ein "@", bleibt sie
+ * unverändert. So kann man sich mit einem einfachen Namen anmelden.
+ */
+export function toLoginEmail(input: string): string {
+  const v = input.trim();
+  return v.includes('@') ? v : `${v.toLowerCase().replace(/\s+/g, '')}@dots.app`;
+}
+
 export function AuthProvider({ children }: PropsWithChildren) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
@@ -78,7 +88,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const signIn: AuthState['signIn'] = async (email, password) => {
     if (!supabase) return { error: 'Kein Backend verbunden.' };
     const { error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
+      email: toLoginEmail(email),
       password,
     });
     return { error: error?.message };
@@ -87,7 +97,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const signUp: AuthState['signUp'] = async (name, email, password) => {
     if (!supabase) return { error: 'Kein Backend verbunden.' };
     const { data, error } = await supabase.auth.signUp({
-      email: email.trim(),
+      email: toLoginEmail(email),
       password,
       options: { data: { name: name.trim() } },
     });

@@ -36,9 +36,15 @@ export function AuthScreen() {
   const [info, setInfo] = useState<string | null>(null);
 
   const isSignup = mode === 'signup';
-  const emailOk = /.+@.+\..+/.test(email.trim());
+  // Erlaubt sowohl eine volle E-Mail als auch einen einfachen Nutzernamen
+  // (z. B. "yannik"). Ein "@" muss eine gültige E-Mail sein, sonst reicht ein
+  // Name ohne Leerzeichen (mind. 2 Zeichen) — er wird intern zu name@dots.app.
+  const ident = email.trim();
+  const identOk = ident.includes('@')
+    ? /.+@.+\..+/.test(ident)
+    : ident.length >= 2 && !/\s/.test(ident);
   const canSubmit =
-    emailOk && password.length >= 6 && (!isSignup || name.trim().length >= 2) && !busy;
+    identOk && password.length >= 6 && (!isSignup || name.trim().length >= 2) && !busy;
 
   const switchMode = (next: Mode) => {
     setMode(next);
@@ -88,10 +94,10 @@ export function AuthScreen() {
             <Input
               value={email}
               onChangeText={setEmail}
-              placeholder="E-Mail"
+              placeholder="E-Mail oder Name"
               keyboardType="email-address"
               autoCapitalize="none"
-              autoComplete="email"
+              autoComplete="username"
             />
             <Input
               value={password}
