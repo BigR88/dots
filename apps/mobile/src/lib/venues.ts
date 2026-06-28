@@ -1,5 +1,6 @@
 import type { DotsEvent, GeoPoint } from '@dots/shared';
 import { formatTime } from '@/lib/format';
+import { displayTimeStatus, getEventTimeStatus } from '@/lib/event-time';
 
 /**
  * Mehrere Events am selben Standort werden zu einer Gruppe zusammengefasst, damit
@@ -80,6 +81,16 @@ export interface VenueMarker {
   genre: string | null;
   /** Startuhrzeit „HH:MM" des Headline-Events (Detail-Label bei hohem Zoom). */
   timeLabel: string | null;
+  /** Live-Status der Gruppe (nur am heutigen Tag): treibt Live-/Bald-Ring. */
+  status: 'live' | 'soon' | null;
+  /** Alle Events am Standort vorbei (heute) → dezenter Marker. */
+  past: boolean;
+}
+
+export interface MarkerTimeOptions {
+  now?: Date;
+  /** Wird der heutige Tag betrachtet? Nur dann Live-Status/Dimming. */
+  liveContext?: boolean;
 }
 
 // Neutral (Slate) für Events ohne Kategorie-Farbe — Marken-Lila bleibt
@@ -91,10 +102,27 @@ const FALLBACK_COLOR = '#94A3B8';
  * am Standort), Größe = Beliebtheit (relativ zum sichtbaren Set), Zahl = Anzahl
  * Events.
  */
-export function toVenueMarkers(groups: VenueGroup[]): VenueMarker[] {
+export function toVenueMarkers(groups: VenueGroup[], opts: MarkerTimeOptions = {}): VenueMarker[] {
+  const now = opts.now ?? new Date();
+  const liveContext = opts.liveContext ?? false;
   const maxPop = groups.reduce((m, g) => Math.max(m, g.popularity), 0) || 1;
   return groups.map((g) => {
     const top = g.events.reduce((a, b) => (b.popularityScore > a.popularityScore ? b : a), g.events[0]);
+
+    // Gruppen-Live-Status: live gewinnt vor soon; past nur, wenn alle vorbei.
+    let status: 'live' | 'soon' | null = null;
+    if (liveContext) {
+      for (const ev of g.events) {
+        const s = displayTimeStatus(ev, now, true);
+        if (s === 'live') {
+          status = 'live';
+          break;
+        }
+        if (s === 'soon') status = 'soon';
+      }
+    }
+    const past = liveContext && g.events.every((ev) => getEventTimeStatus(ev, now) === 'past');
+
     return {
       key: g.key,
       lat: g.location.lat,
@@ -106,6 +134,8 @@ export function toVenueMarkers(groups: VenueGroup[]): VenueMarker[] {
       categoryName: top.category?.name ?? 'Event',
       genre: top.musicGenre,
       timeLabel: formatTime(top.startAt),
+      status,
+      past,
     };
   });
 }

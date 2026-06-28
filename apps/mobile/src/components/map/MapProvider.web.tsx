@@ -8,6 +8,7 @@ import {
   districtLabelHtml,
   visibleDistricts,
 } from '@/lib/districts';
+import { HOT_AREA_CSS, HOT_AREA_MAX_ZOOM } from '@/lib/hot-areas';
 import type { MapProviderProps } from './MapProvider';
 
 // Sicht-Tabuzonen (px) für Stadtteil-Labels: nicht unter Header/Datumsleiste
@@ -79,12 +80,13 @@ function injectMarkerStyles() {
   if (document.getElementById(STYLE_ID)) return;
   const style = document.createElement('style');
   style.id = STYLE_ID;
-  style.textContent = `${MARKER_CSS}\n${DISTRICT_CSS}\n.leaflet-container{font-family:inherit;}`;
+  style.textContent = `${MARKER_CSS}\n${DISTRICT_CSS}\n${HOT_AREA_CSS}\n.leaflet-container{font-family:inherit;}`;
   document.head.appendChild(style);
 }
 
 export function MapProvider({
   markers,
+  hotAreas,
   userLocation,
   selectedKey,
   onSelectMarker,
@@ -96,6 +98,10 @@ export function MapProvider({
   const tintRef = useRef<HTMLDivElement | null>(null);
   const districtRef = useRef<any>(null);
   const renderDistrictsRef = useRef<() => void>(() => {});
+  const hotRef = useRef<any>(null);
+  const hotDataRef = useRef(hotAreas);
+  hotDataRef.current = hotAreas;
+  const renderHotRef = useRef<() => void>(() => {});
   // Keys der aktuell beschrifteten Marker — nur DEREN Labels sind für Stadtteil-
   // Labels tabu (bei niedrigem Zoom ohne Event-Labels stehen Stadtteile frei).
   const labelledKeysRef = useRef<Set<string>>(new Set());
@@ -146,6 +152,31 @@ export function MapProvider({
   }, []);
   renderDistrictsRef.current = renderDistricts;
 
+  // Hot Areas: weicher Glow ganz hinten, nur bei niedrigem/mittlerem Zoom.
+  const renderHotAreas = useCallback(() => {
+    const L = window.L;
+    const map = mapRef.current;
+    const grp = hotRef.current;
+    if (!L || !map || !grp) return;
+    grp.clearLayers();
+    if (map.getZoom() > HOT_AREA_MAX_ZOOM) return;
+    hotDataRef.current.forEach((a) => {
+      const edge = [a.lat + (a.spreadM + 250) / 111320, a.lon];
+      const pc = map.latLngToContainerPoint([a.lat, a.lon]);
+      const pe = map.latLngToContainerPoint(edge);
+      const d = Math.max(120, Math.min(320, Math.abs(pe.y - pc.y) * 2));
+      const op = 0.55 + 0.45 * a.intensity;
+      const icon = L.divIcon({
+        className: 'dots-hot-icon',
+        html: `<div class="dots-hot" style="width:${d}px;height:${d}px;opacity:${op}"></div>`,
+        iconSize: [d, d],
+        iconAnchor: [d / 2, d / 2],
+      });
+      L.marker([a.lat, a.lon], { icon, pane: 'dotsHot', interactive: false, keyboard: false }).addTo(grp);
+    });
+  }, []);
+  renderHotRef.current = renderHotAreas;
+
   // Karte einmalig initialisieren.
   useEffect(() => {
     let cancelled = false;
@@ -176,6 +207,15 @@ export function MapProvider({
         el.appendChild(tint);
         tintRef.current = tint;
 
+        // Hot-Area-Pane ganz hinten (über Kacheln, unter Stadtteilen/Markern).
+        map.createPane('dotsHot');
+        const hpane = map.getPane('dotsHot');
+        if (hpane) {
+          hpane.style.zIndex = '335';
+          hpane.style.pointerEvents = 'none';
+        }
+        hotRef.current = L.layerGroup().addTo(map);
+
         // Eigener Pane für Stadtteil-Labels: über den Kacheln, UNTER den Markern.
         map.createPane('dotsDistricts');
         const dpane = map.getPane('dotsDistricts');
@@ -184,12 +224,16 @@ export function MapProvider({
           dpane.style.pointerEvents = 'none';
         }
         districtRef.current = L.layerGroup().addTo(map);
-        map.on('moveend', () => renderDistrictsRef.current());
+        map.on('moveend', () => {
+          renderHotRef.current();
+          renderDistrictsRef.current();
+        });
 
         mapRef.current = map;
         markersRef.current = L.layerGroup().addTo(map);
         setTimeout(() => map.invalidateSize(), 60);
         setReady(true);
+        renderHotRef.current();
         renderDistrictsRef.current();
       })
       .catch(() => {
@@ -269,6 +313,11 @@ export function MapProvider({
     // Stadtteil-Labels nach dem Marker-Rebuild aktualisieren (weichen Markern aus).
     renderDistricts();
   }, [markers, selectedKey, ready, zoom, renderDistricts]);
+
+  // Hot Areas bei Zoom-/Daten-Änderung neu zeichnen (zoom-gated im Renderer).
+  useEffect(() => {
+    if (ready) renderHotAreas();
+  }, [ready, zoom, hotAreas, renderHotAreas]);
 
   // Bei Auswahl sanft zum Pin schwenken (Sheet verdeckt unten). Nur an
   // `selectedKey` gekoppelt — reine Listen-Updates lösen kein Re-Pan aus.

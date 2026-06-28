@@ -28,6 +28,10 @@ export interface MarkerInput {
   categoryName: string;
   genre: string | null;
   timeLabel: string | null;
+  /** Live-Status (nur heute): 'live' → sanfter Puls, 'soon' → ruhiger Ring. */
+  status?: 'live' | 'soon' | null;
+  /** Alle Events am Standort vorbei → Marker dezenter. */
+  past?: boolean;
 }
 
 /** Transparenter Tap-Halo rund um den Dot (bessere Tappbarkeit ohne mehr Optik). */
@@ -72,6 +76,10 @@ export const MARKER_CSS = `
 .dots-dot.is-sel{border-color:#fff;z-index:1000;}
 .dots-ring{position:absolute;inset:-8px;border-radius:50%;border:3px solid ${ACCENT};
   pointer-events:none;animation:dots-ping 1.7s cubic-bezier(0,0,.2,1) infinite;}
+/* „Läuft jetzt": sanfter, langsamer Puls in Kategorie-Farbe (border-color inline). */
+.dots-ring--live{border-width:2.5px;animation-duration:2.2s;}
+/* „Startet bald": ruhiger statischer Ring, kein Blinken. */
+.dots-ring--soon{border-width:2px;animation:none;opacity:.6;}
 @keyframes dots-ping{0%{transform:scale(.7);opacity:.8}80%{opacity:0}100%{transform:scale(2.05);opacity:0}}
 /* Deckkraft trägt die Lesbarkeit (Blur nur Premium-Plus, nicht überall verfügbar). */
 .dots-label{position:absolute;top:calc(100% + 6px);left:50%;transform:translateX(-50%);
@@ -119,7 +127,17 @@ export function buildMarkerIcon(
     : `0 0 8px ${m.color}cc,0 1px 4px rgba(0,0,0,.45)`;
 
   const num = multi ? `<span class="dots-dot__n" style="font-size:${numFont}px">${m.count}</span>` : '';
-  const ring = selected ? '<span class="dots-ring"></span>' : '';
+
+  // Ring-Priorität: ausgewählt (Lila) > läuft jetzt > startet bald.
+  let ring = '';
+  if (selected) ring = '<span class="dots-ring"></span>';
+  else if (m.status === 'live')
+    ring = `<span class="dots-ring dots-ring--live" style="border-color:${m.color}"></span>`;
+  else if (m.status === 'soon')
+    ring = `<span class="dots-ring dots-ring--soon" style="border-color:${m.color}"></span>`;
+
+  // Vorbei (heute) → dezenter Marker, sofern nicht ausgewählt.
+  const dim = m.past && !selected ? ';opacity:.5' : '';
 
   let label = '';
   if (showLabel) {
@@ -136,7 +154,7 @@ export function buildMarkerIcon(
   const html =
     `<div class="dots-marker" style="width:${box}px;height:${box}px;">` +
     `<div class="dots-dot${selected ? ' is-sel' : ''}" ` +
-    `style="width:${dot}px;height:${dot}px;background:${m.color};box-shadow:${glow};">` +
+    `style="width:${dot}px;height:${dot}px;background:${m.color};box-shadow:${glow}${dim};">` +
     `${num}${ring}${label}</div>` +
     `</div>`;
 

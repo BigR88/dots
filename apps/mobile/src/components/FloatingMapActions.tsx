@@ -4,9 +4,7 @@ import { useTheme } from '@/theme/theme';
 import { GlassButton } from './GlassButton';
 
 interface Props {
-  /** Standort-Funktion aktiv (Master-Schalter aus den Einstellungen). */
-  locationEnabled: boolean;
-  /** Standort aktuell bekannt (Symbol auf der Karte sichtbar). */
+  /** Standort aktuell bekannt (Symbol auf der Karte sichtbar, Button aktiv). */
   located: boolean;
   onLocate: () => void;
   /** Abstand vom unteren Rand (über der schwebenden Tab-Bar). */
@@ -14,16 +12,15 @@ interface Props {
 }
 
 /**
- * Schwebende Karten-Aktion rechts unten: nur „mein Standort" (und auch nur,
- * wenn die Standort-Funktion in den Einstellungen aktiv ist). Bewusst minimal —
- * keine Zoom-/Einstellungs-Buttons, um die Karte ruhig zu halten.
+ * Schwebende Karten-Aktion rechts unten: „In meiner Nähe". Immer verfügbar —
+ * der Tap ist der Standort-Opt-in (Berechtigung wird dann angefragt). Aktiver
+ * Zustand (Lila), sobald eine Position bekannt ist. Bewusst minimal.
  */
-export function FloatingMapActions({ locationEnabled, located, onLocate, bottom }: Props) {
+export function FloatingMapActions({ located, onLocate, bottom }: Props) {
   const t = useTheme();
-  if (!locationEnabled) return null;
   return (
     <View style={[styles.wrap, { bottom }]} pointerEvents="box-none">
-      <GlassButton solid onPress={onLocate} size={48} accessibilityLabel="Mein Standort">
+      <GlassButton solid onPress={onLocate} size={48} accessibilityLabel="In meiner Nähe">
         <Ionicons
           name={located ? 'navigate' : 'navigate-outline'}
           size={20}

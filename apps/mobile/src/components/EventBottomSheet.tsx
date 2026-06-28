@@ -15,10 +15,13 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { DotsEvent, GeoPoint } from '@dots/shared';
 import { formatDay, formatPrice, formatTime } from '@/lib/format';
+import { displayTimeStatus } from '@/lib/event-time';
+import { canOpenRoute, openRoute } from '@/lib/maps-link';
 import type { VenueGroup } from '@/lib/venues';
 import { useTheme } from '@/theme/theme';
 import { CategoryBadge } from './CategoryBadge';
 import { DistanceLabel } from './DistanceLabel';
+import { EventTimeStatusBadge } from './EventTimeStatusBadge';
 
 const USE_NATIVE_DRIVER = Platform.OS !== 'web';
 const CLOSED_Y = 720; // weit unterhalb des Bildschirms (für Slide-out)
@@ -32,11 +35,17 @@ const CLOSED_Y = 720; // weit unterhalb des Bildschirms (für Slide-out)
 export function EventBottomSheet({
   group,
   userLocation,
+  now,
+  liveContext,
   onOpenEvent,
   onClose,
 }: {
   group: VenueGroup;
   userLocation: GeoPoint | null;
+  /** Aktuelle Zeit (für Live-Status); regelmäßig aktualisiert. */
+  now: Date;
+  /** Heutiger Tag betrachtet? Nur dann Live-Status statt reiner Uhrzeit. */
+  liveContext: boolean;
   onOpenEvent: (id: string) => void;
   onClose: () => void;
 }) {
@@ -104,9 +113,15 @@ export function EventBottomSheet({
         </View>
 
         {single ? (
-          <SingleEvent event={single} userLocation={userLocation} onOpen={() => onOpenEvent(single.id)} onClose={close} />
+          <SingleEvent
+            event={single}
+            userLocation={userLocation}
+            status={displayTimeStatus(single, now, liveContext)}
+            onOpen={() => onOpenEvent(single.id)}
+            onClose={close}
+          />
         ) : (
-          <MultiEvents group={group} onOpenEvent={onOpenEvent} onClose={close} />
+          <MultiEvents group={group} now={now} liveContext={liveContext} onOpenEvent={onOpenEvent} onClose={close} />
         )}
       </Animated.View>
     </View>
@@ -117,16 +132,19 @@ export function EventBottomSheet({
 function SingleEvent({
   event,
   userLocation,
+  status,
   onOpen,
   onClose,
 }: {
   event: DotsEvent;
   userLocation: GeoPoint | null;
+  status: ReturnType<typeof displayTimeStatus>;
   onOpen: () => void;
   onClose: () => void;
 }) {
   const t = useTheme();
   const color = event.category?.color ?? t.accent;
+  const showRoute = canOpenRoute(event);
 
   return (
     <View style={styles.body}>
@@ -141,6 +159,7 @@ function SingleEvent({
 
         <View style={styles.headerInfo}>
           <View style={styles.badgeRow}>
+            <EventTimeStatusBadge status={status} />
             <CategoryBadge category={event.category} />
             <PopularityPill score={event.popularityScore} />
           </View>
@@ -181,18 +200,34 @@ function SingleEvent({
         </View>
       ) : null}
 
-      <Pressable onPress={onOpen}>
-        {({ pressed }) => (
-          <LinearGradient
-            colors={t.gradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={[styles.cta, pressed && { opacity: 0.9 }]}>
-            <Text style={styles.ctaText}>Details ansehen</Text>
-            <Ionicons name="arrow-forward" size={16} color="#fff" />
-          </LinearGradient>
-        )}
-      </Pressable>
+      <View style={styles.ctaRow}>
+        <Pressable style={styles.ctaFlex} onPress={onOpen}>
+          {({ pressed }) => (
+            <LinearGradient
+              colors={t.gradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={[styles.cta, pressed && { opacity: 0.9 }]}>
+              <Text style={styles.ctaText}>Details ansehen</Text>
+              <Ionicons name="arrow-forward" size={16} color="#fff" />
+            </LinearGradient>
+          )}
+        </Pressable>
+
+        {showRoute ? (
+          <Pressable
+            onPress={() => void openRoute(event)}
+            accessibilityLabel="Route öffnen"
+            style={({ pressed }) => [
+              styles.routeBtn,
+              { backgroundColor: t.colors.surfaceElevated, borderColor: t.colors.border },
+              pressed && { opacity: 0.7 },
+            ]}>
+            <Ionicons name="navigate" size={17} color={t.colors.textPrimary} />
+            <Text style={[styles.routeText, { color: t.colors.textPrimary }]}>Route</Text>
+          </Pressable>
+        ) : null}
+      </View>
     </View>
   );
 }
@@ -200,10 +235,14 @@ function SingleEvent({
 /* ── Mehrere Events am selben Standort ──────────────────────────────────────*/
 function MultiEvents({
   group,
+  now,
+  liveContext,
   onOpenEvent,
   onClose,
 }: {
   group: VenueGroup;
+  now: Date;
+  liveContext: boolean;
   onOpenEvent: (id: string) => void;
   onClose: () => void;
 }) {
@@ -225,7 +264,9 @@ function MultiEvents({
       </View>
 
       <ScrollView style={styles.list} showsVerticalScrollIndicator={false} bounces={false}>
-        {group.events.map((ev, i) => (
+        {group.events.map((ev, i) => {
+          const past = displayTimeStatus(ev, now, liveContext) === 'past';
+          return (
           <Pressable
             key={ev.id}
             onPress={() => onOpenEvent(ev.id)}
@@ -233,6 +274,7 @@ function MultiEvents({
               styles.eventCard,
               { backgroundColor: t.colors.surfaceElevated },
               i > 0 && { marginTop: 8 },
+              past && { opacity: 0.55 },
               pressed && { opacity: 0.7 },
             ]}>
             <View style={[styles.timePill, { backgroundColor: (ev.category?.color ?? t.accent) + '22' }]}>
@@ -241,16 +283,20 @@ function MultiEvents({
               </Text>
             </View>
             <View style={styles.eventInfo}>
-              <Text numberOfLines={1} style={[styles.eventTitle, { color: t.colors.textPrimary }]}>
-                {ev.title}
-              </Text>
+              <View style={styles.eventTitleRow}>
+                <Text numberOfLines={1} style={[styles.eventTitle, { color: t.colors.textPrimary, flexShrink: 1 }]}>
+                  {ev.title}
+                </Text>
+                <EventTimeStatusBadge status={displayTimeStatus(ev, now, liveContext)} compact />
+              </View>
               <Text numberOfLines={1} style={[styles.eventMeta, { color: t.colors.textSecondary }]}>
                 {[ev.category?.name, ev.musicGenre, formatPrice(ev)].filter(Boolean).join(' · ')}
               </Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color={t.colors.textMuted} />
           </Pressable>
-        ))}
+          );
+        })}
       </ScrollView>
     </View>
   );
@@ -348,6 +394,8 @@ const styles = StyleSheet.create({
 
   distanceRow: { flexDirection: 'row' },
 
+  ctaRow: { flexDirection: 'row', alignItems: 'stretch', gap: 10, marginTop: 2 },
+  ctaFlex: { flex: 1 },
   cta: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -355,9 +403,19 @@ const styles = StyleSheet.create({
     gap: 6,
     height: 48,
     borderRadius: 14,
-    marginTop: 2,
   },
   ctaText: { color: '#fff', fontWeight: '800', fontSize: 15.5, letterSpacing: -0.2 },
+  routeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    height: 48,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  routeText: { fontWeight: '800', fontSize: 14.5, letterSpacing: -0.2 },
 
   pop: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 },
   popText: { fontSize: 11.5, fontWeight: '800' },
@@ -368,6 +426,7 @@ const styles = StyleSheet.create({
   timePill: { minWidth: 56, paddingHorizontal: 8, paddingVertical: 6, borderRadius: 12, alignItems: 'center' },
   timePillText: { fontSize: 14, fontWeight: '800', letterSpacing: -0.3 },
   eventInfo: { flex: 1, gap: 3 },
+  eventTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   eventTitle: { fontSize: 15, fontWeight: '700', letterSpacing: -0.2 },
   eventMeta: { fontSize: 12.5 },
 });

@@ -1,18 +1,20 @@
 import { useQuery } from '@tanstack/react-query';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { LayoutAnimation, Platform, Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { GeoPoint, QuickFilterId, TimeValue } from '@dots/shared';
+import { NEXT_7_DAYS, type GeoPoint, type QuickFilterId, type TimeValue } from '@dots/shared';
 import { DateBar } from '@/components/DateBar';
 import { DateOverlay } from '@/components/DateOverlay';
 import { EventBottomSheet } from '@/components/EventBottomSheet';
 import { FilterPanel } from '@/components/FilterPanel';
 import { FloatingMapActions } from '@/components/FloatingMapActions';
 import { FloatingMapHeader } from '@/components/FloatingMapHeader';
+import { MapToast } from '@/components/MapToast';
 import { MapProvider } from '@/components/map/MapProvider';
 import { listEvents, type EventQuery } from '@/data/events';
+import { calculateHotAreas } from '@/lib/hot-areas';
 import { isoDay } from '@/lib/time';
 import { groupEventsByVenue, toVenueMarkers } from '@/lib/venues';
 import { useLocation } from '@/hooks/use-location';
@@ -31,7 +33,7 @@ export default function MapScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { location, status, request } = useLocation();
-  const [locationEnabled] = useLocationEnabled();
+  const [locationEnabled, setLocationEnabled] = useLocationEnabled();
 
   const [time, setTime] = useState<TimeValue>(isoDay(new Date()));
   const [categorySlug, setCategorySlug] = useState<string | null>(null);
@@ -45,6 +47,37 @@ export default function MapScreen() {
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [section, setSection] = useState<Section | null>('category');
   const [topH, setTopH] = useState(0);
+
+  // „Jetzt" für den Live-Status, im Minutentakt aktualisiert.
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Bei Tageswechsel (App über Mitternacht offen) „heute" mitführen, damit der
+  // Live-Status einer laufenden Nacht nicht plötzlich verschwindet.
+  const prevDayRef = useRef(isoDay(now));
+  useEffect(() => {
+    const today = isoDay(now);
+    if (today !== prevDayRef.current) {
+      setTime((cur) => (cur === prevDayRef.current ? today : cur));
+      prevDayRef.current = today;
+    }
+  }, [now]);
+
+  // Dezenter, selbst-ausblendender Hinweis (z. B. Standort-Fehler).
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showToast = useCallback((msg: string) => {
+    setToast(msg);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), 3400);
+  }, []);
+  useEffect(() => () => void (toastTimer.current && clearTimeout(toastTimer.current)), []);
+
+  // Live-Status nur für den heutigen Tag (bzw. die Wochenansicht) relevant.
+  const liveContext = time === isoDay(now) || time === NEXT_7_DAYS;
 
   const query: EventQuery = {
     time,
@@ -62,7 +95,9 @@ export default function MapScreen() {
 
   // Mehrere Events am selben Standort → eine Gruppe → ein Pin (mit Zahl).
   const groups = useMemo(() => groupEventsByVenue(events), [events]);
-  const markers = useMemo(() => toVenueMarkers(groups), [groups]);
+  const markers = useMemo(() => toVenueMarkers(groups, { now, liveContext }), [groups, now, liveContext]);
+  // Dynamische Event-Dichte (weicher Glow) — aus den aktuellen Events.
+  const hotAreas = useMemo(() => calculateHotAreas(events), [events]);
   const selectedGroup = useMemo(
     () => groups.find((g) => g.key === selectedKey) ?? null,
     [groups, selectedKey],
@@ -90,7 +125,14 @@ export default function MapScreen() {
 
   const locate = async () => {
     const point = (await request()) ?? location;
-    if (point) setFocus((f) => ({ point, nonce: (f?.nonce ?? 0) + 1 }));
+    if (point) {
+      // Tap = bewusster Opt-in → Settings-Schalter mitführen (sonst „bypassen"
+      // wir die Einstellung). Standort-Symbol bleibt so auch konsistent sichtbar.
+      if (!locationEnabled) setLocationEnabled(true);
+      setFocus((f) => ({ point, nonce: (f?.nonce ?? 0) + 1, zoom: 15 }));
+    } else {
+      showToast('Standort nicht verfügbar — bitte in den Geräte-Einstellungen erlauben.');
+    }
   };
 
   // Ist die Standort-Funktion (in den Einstellungen) aktiv, Standort holen,
@@ -99,8 +141,9 @@ export default function MapScreen() {
     if (locationEnabled && !location && status === 'idle') void request();
   }, [locationEnabled, location, status, request]);
 
-  // Symbol nur zeigen, wenn die Standort-Funktion aktiv ist.
-  const shownLocation = locationEnabled ? location : null;
+  // Standort-Symbol zeigen, sobald wir eine Position haben (Button-getriebener
+  // Opt-in ODER Einstellungs-Schalter). Vorher gab es keinen Punkt.
+  const shownLocation = location;
 
   const toggleQuick = (id: QuickFilterId) => {
     setQuickFilters((cur) => (cur.includes(id) ? cur.filter((q) => q !== id) : [...cur, id]));
@@ -132,6 +175,7 @@ export default function MapScreen() {
       <View style={StyleSheet.absoluteFill}>
         <MapProvider
           markers={markers}
+          hotAreas={hotAreas}
           userLocation={shownLocation}
           selectedKey={selectedKey}
           onSelectMarker={setSelectedKey}
@@ -164,14 +208,12 @@ export default function MapScreen() {
         </View>
       </View>
 
-      {/* Schwebende Karten-Aktion: nur „mein Standort" (verstecken, wenn Sheet/Panel offen) */}
+      {/* Dezenter Hinweis (z. B. Standort-Fehler) über der Tab-Leiste */}
+      <MapToast message={toast} bottom={insets.bottom + 100} />
+
+      {/* „In meiner Nähe" — immer verfügbar (verstecken, wenn Sheet/Panel offen) */}
       {!selectedGroup && !open && (
-        <FloatingMapActions
-          locationEnabled={locationEnabled}
-          located={!!location}
-          onLocate={locate}
-          bottom={insets.bottom + 92}
-        />
+        <FloatingMapActions located={!!location} onLocate={locate} bottom={insets.bottom + 92} />
       )}
 
       {/* Auswahl → Premium-Bottom-Sheet (ein Event oder mehrere am Standort) */}
@@ -180,6 +222,8 @@ export default function MapScreen() {
           key={selectedGroup.key}
           group={selectedGroup}
           userLocation={shownLocation}
+          now={now}
+          liveContext={liveContext}
           onOpenEvent={openEvent}
           onClose={() => setSelectedKey(null)}
         />

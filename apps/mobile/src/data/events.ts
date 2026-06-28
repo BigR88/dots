@@ -1,6 +1,7 @@
 import type { DotsEvent, GeoPoint, SortId, TimeValue, QuickFilterId } from '@dots/shared';
 import { FIXTURE_EVENTS, geoPointFromPostgis, TRENDING } from '@dots/shared';
 import { rangeForTime } from '@/lib/time';
+import { getEventEndTime } from '@/lib/event-time';
 import { isFree, isUnder20 } from '@/lib/format';
 import { distanceMeters } from '@/lib/geo';
 import { fetchSocialStats } from './social';
@@ -27,8 +28,12 @@ function applyFilters(events: DotsEvent[], q: EventQuery): DotsEvent[] {
   const origin = q.origin ?? null;
   const needle = q.search?.trim().toLowerCase() ?? '';
   let out = events.filter((e) => {
-    const t = new Date(e.startAt).getTime();
-    if (t < from.getTime() || t >= to.getTime()) return false;
+    // Überlappungs-basiert (nicht nur Start): ein über Mitternacht laufendes
+    // Event (z. B. 23:00–04:00) gehört auch zum aktuellen Fenster, solange sein
+    // Intervall [Start, Ende) das Fenster [from, to) schneidet.
+    const start = new Date(e.startAt).getTime();
+    const end = getEventEndTime(e).getTime();
+    if (end <= from.getTime() || start >= to.getTime()) return false;
     if (needle) {
       const hay = [
         e.title,

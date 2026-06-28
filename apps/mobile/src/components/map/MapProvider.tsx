@@ -4,6 +4,7 @@ import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 import type { GeoPoint } from '@dots/shared';
 import { buildMarkerIcon, MARKER_CSS, MARKER_ZOOM } from '@/lib/map-markers';
 import { DISTRICTS, DISTRICT_CSS } from '@/lib/districts';
+import { HOT_AREA_CSS, HOT_AREA_MAX_ZOOM, type HotArea } from '@/lib/hot-areas';
 import type { VenueMarker } from '@/lib/venues';
 
 /**
@@ -16,6 +17,8 @@ import type { VenueMarker } from '@/lib/venues';
 export interface MapProviderProps {
   /** Gruppierte Standort-Marker (ein Pin je Venue). */
   markers: VenueMarker[];
+  /** Dynamische Event-Dichte (weicher Glow, zoomabhängig). */
+  hotAreas: HotArea[];
   userLocation: GeoPoint | null;
   /** Schlüssel des aktiven Standorts (Venue-Gruppe). */
   selectedKey: string | null;
@@ -38,6 +41,7 @@ const MAP_HTML = `<!DOCTYPE html>
   .leaflet-control-attribution{display:none}
   ${MARKER_CSS}
   ${DISTRICT_CSS}
+  ${HOT_AREA_CSS}
 </style>
 </head>
 <body>
@@ -74,6 +78,24 @@ const MAP_HTML = `<!DOCTYPE html>
       });
   }
   map.on('zoomend moveend',renderDistricts);
+  // Hot Areas: weicher Glow ganz hinten (über Kacheln, unter allem anderen), zoom-gated.
+  map.createPane('dotsHot'); map.getPane('dotsHot').style.zIndex=335; map.getPane('dotsHot').style.pointerEvents='none';
+  var hgrp=L.layerGroup().addTo(map);
+  var HOT=[]; var HOT_MAX_Z=${HOT_AREA_MAX_ZOOM};
+  function renderHot(){
+    hgrp.clearLayers();
+    if(map.getZoom()>HOT_MAX_Z) return;
+    HOT.forEach(function(a){
+      var edge=[a.lat+(a.spreadM+250)/111320, a.lon];
+      var pc=map.latLngToContainerPoint([a.lat,a.lon]); var pe=map.latLngToContainerPoint(edge);
+      var d=Math.max(120,Math.min(320,Math.abs(pe.y-pc.y)*2));
+      var op=0.55+0.45*(a.intensity||0);
+      var icon=L.divIcon({className:'dots-hot-icon',html:'<div class="dots-hot" style="width:'+d+'px;height:'+d+'px;opacity:'+op+'"></div>',iconSize:[d,d],iconAnchor:[d/2,d/2]});
+      L.marker([a.lat,a.lon],{icon:icon,pane:'dotsHot',interactive:false,keyboard:false}).addTo(hgrp);
+    });
+  }
+  window.setHotAreas=function(list){ HOT=list||[]; renderHot(); };
+  map.on('zoomend moveend',renderHot);
   var group=L.layerGroup().addTo(map);
   var userMarker=null;
   window.setMarkers=function(list){
@@ -113,6 +135,7 @@ const MAP_HTML = `<!DOCTYPE html>
 
 export function MapProvider({
   markers,
+  hotAreas,
   userLocation,
   selectedKey,
   onSelectMarker,
@@ -160,12 +183,19 @@ export function MapProvider({
     run(`window.setUser && window.setUser(${JSON.stringify(loc)})`);
   }, [userLocation, run]);
 
+  const pushHot = useCallback(() => {
+    run(`window.setHotAreas && window.setHotAreas(${JSON.stringify(hotAreas)})`);
+  }, [hotAreas, run]);
+
   useEffect(() => {
     if (ready.current) pushMarkers();
   }, [pushMarkers]);
   useEffect(() => {
     if (ready.current) pushUser();
   }, [pushUser]);
+  useEffect(() => {
+    if (ready.current) pushHot();
+  }, [pushHot]);
   useEffect(() => {
     if (ready.current && focus && focus.nonce !== lastFocus.current) {
       lastFocus.current = focus.nonce;
@@ -191,6 +221,7 @@ export function MapProvider({
       ready.current = true;
       pushMarkers();
       pushUser();
+      pushHot();
       if (focus) {
         lastFocus.current = focus.nonce;
         run(`window.doFocus && window.doFocus(${JSON.stringify(focus)})`);
