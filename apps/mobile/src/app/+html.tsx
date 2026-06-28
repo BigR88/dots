@@ -26,7 +26,12 @@ export default function Root({ children }: PropsWithChildren) {
         <meta name="theme-color" content="#F7F8FC" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        {/* black-translucent: die App füllt den GESAMTEN Bildschirm (auch unter
+            Dynamic Island / Statusleiste) statt unter einem opaken weißen Balken
+            zu starten. Erst dadurch meldet iOS echte safe-area-inset-Werte, die
+            die App via SafeAreaProvider als oberen Abstand nutzt (kein weißer
+            Spalt mehr, gleiches Bild wie in der Vorschau). */}
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="dots" />
         <link rel="apple-touch-icon" href={`${base}/apple-touch-icon.png`} />
 
