@@ -2,11 +2,18 @@
 html, body, #root { height: 100%; }
 /* iOS-Standalone-PWA: height:100% deckt die untere Safe-Area (Home-Indikator)
    nicht zuverlässig ab -> der weiße Body-Hintergrund scheint dort als Streifen
-   durch. 100dvh = echte sichtbare Viewport-Höhe. Auf ALLE drei Ebenen (html,
-   body, #root) angewandt, damit der Body (overflow:hidden) nichts abschneidet
-   und die App bis zur Bildschirmkante reicht. */
+   durch. 100dvh = echte sichtbare Viewport-Höhe. */
 @supports (height: 100dvh) {
   html, body, #root { height: 100dvh; }
+}
+/* Garantie-Fix für die INSTALLIERTE PWA: die App-Wurzel direkt am echten
+   sichtbaren Viewport fixieren (inkl. aller Safe-Areas). So kann unten kein
+   weißer Body mehr durchscheinen, egal wie iOS height/dvh auflöst. Nur im
+   Standalone-Modus aktiv, damit der normale Browser-Tab (Tastatur/Scroll)
+   unberührt bleibt. */
+@media all and (display-mode: standalone) {
+  html, body { height: 100%; overflow: hidden; }
+  #root { position: fixed; top: 0; right: 0; bottom: 0; left: 0; height: auto; }
 }
 html, body { background-color: #F7F8FC; }
 @media (prefers-color-scheme: dark) { html, body { background-color: #0B0B0F; } }
@@ -463,5 +470,5 @@ input::-webkit-search-cancel-button,input::-webkit-search-decoration,input::-web
 @keyframes r-1pzkwqh{0%{transform:translateY(100%);}100%{transform:translateY(0%);}}
 @keyframes r-imtty0{0%{opacity:0;}100%{opacity:1;}}
 @keyframes r-q67da2{0%{transform:translateX(-100%);}100%{transform:translateX(400%);}}
-@keyframes r-t2lo5v{0%{opacity:1;}100%{opacity:0;}}</style><script type="module">globalThis.__EXPO_ROUTER_HYDRATE__=true;</script><link rel="icon" href="/dots/favicon.ico" /></head><body><div id="root"><div class="css-g5y9jx r-13awgt0"></div></div><script src="/dots/_expo/static/js/web/entry-925af703678a632854c44fc0c794bba3.js" defer></script>
+@keyframes r-t2lo5v{0%{opacity:1;}100%{opacity:0;}}</style><script type="module">globalThis.__EXPO_ROUTER_HYDRATE__=true;</script><link rel="icon" href="/dots/favicon.ico" /></head><body><div id="root"><div class="css-g5y9jx r-13awgt0"></div></div><script src="/dots/_expo/static/js/web/entry-3b88e91e8b1ea4417051b81a1dde502a.js" defer></script>
 </body></html>

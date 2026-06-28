@@ -47,11 +47,18 @@ const BODY_CSS = `
 html, body, #root { height: 100%; }
 /* iOS-Standalone-PWA: height:100% deckt die untere Safe-Area (Home-Indikator)
    nicht zuverlässig ab -> der weiße Body-Hintergrund scheint dort als Streifen
-   durch. 100dvh = echte sichtbare Viewport-Höhe. Auf ALLE drei Ebenen (html,
-   body, #root) angewandt, damit der Body (overflow:hidden) nichts abschneidet
-   und die App bis zur Bildschirmkante reicht. */
+   durch. 100dvh = echte sichtbare Viewport-Höhe. */
 @supports (height: 100dvh) {
   html, body, #root { height: 100dvh; }
+}
+/* Garantie-Fix für die INSTALLIERTE PWA: die App-Wurzel direkt am echten
+   sichtbaren Viewport fixieren (inkl. aller Safe-Areas). So kann unten kein
+   weißer Body mehr durchscheinen, egal wie iOS height/dvh auflöst. Nur im
+   Standalone-Modus aktiv, damit der normale Browser-Tab (Tastatur/Scroll)
+   unberührt bleibt. */
+@media all and (display-mode: standalone) {
+  html, body { height: 100%; overflow: hidden; }
+  #root { position: fixed; top: 0; right: 0; bottom: 0; left: 0; height: auto; }
 }
 html, body { background-color: #F7F8FC; }
 @media (prefers-color-scheme: dark) { html, body { background-color: #0B0B0F; } }
