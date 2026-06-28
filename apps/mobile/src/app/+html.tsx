@@ -72,29 +72,30 @@ export default function Root({ children }: PropsWithChildren) {
 
 // Bei jedem Pages-Deploy hochzählen, damit am Handy sichtbar ist, ob die neue
 // Version geladen wurde (sonst Cache).
-const BUILD_TAG = 'build v3';
+const BUILD_TAG = 'build v4';
 
 const BODY_CSS = `
 html, body, #root { height: 100%; }
-/* iOS-Standalone-PWA: height:100% deckt die untere Safe-Area (Home-Indikator)
-   nicht zuverlässig ab -> der weiße Body-Hintergrund scheint dort als Streifen
-   durch. 100dvh = echte sichtbare Viewport-Höhe. */
+html, body { margin: 0; overflow: hidden; }
 @supports (height: 100dvh) {
-  html, body, #root { height: 100dvh; }
+  html, body { height: 100dvh; }
 }
-/* Garantie-Fix für die INSTALLIERTE PWA: die App-Wurzel direkt am echten
-   sichtbaren Viewport fixieren (inkl. aller Safe-Areas). So kann unten kein
-   weißer Body mehr durchscheinen, egal wie iOS height/dvh auflöst. Nur im
-   Standalone-Modus aktiv, damit der normale Browser-Tab (Tastatur/Scroll)
-   unberührt bleibt. */
-@media all and (display-mode: standalone) {
-  html, body { height: 100%; overflow: hidden; }
-  #root { position: fixed; top: 0; right: 0; bottom: 0; left: 0; height: auto; }
+/* #root deckt IMMER den vollen sichtbaren Viewport ab (inkl. aller Safe-Areas,
+   dank viewport-fit=cover). position:fixed + inset:0 ist auf iOS der zuverlässige
+   Weg — height:100dvh lässt im installierten Standalone-Modus die untere
+   Home-Indikator-Safe-Area aus (Karte reicht dann nicht bis zur Kante). BEWUSST
+   NICHT an @media(display-mode:standalone) gekoppelt: iOS matcht das bei „Zum
+   Home-Bildschirm"-Apps nicht zuverlässig, daher griff der frühere Fix nie. */
+#root {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: auto;
+  display: flex;
 }
-/* Canvas dunkel = Map-Farbe (#0b1622), in BEIDEN Schemata. Der Startbildschirm
-   ist die dunkle Karte; falls iOS die Seite unter black-translucent kurz nach
-   oben schiebt oder die Höhe spät auflöst, zeigt jede unbedeckte Lücke die
-   Map-Farbe statt Weiß — unabhängig davon, ob @media(display-mode:standalone)
-   matcht. Voll deckende App-Screens überdecken die Canvas wie gehabt. */
+/* Canvas dunkel = Map-Farbe (#0b1622): falls iOS trotzdem irgendwo eine Lücke
+   lässt, blendet sie in die Karte ein statt als weißer Streifen. */
 html, body { background-color: #0b1622; }
 `;
