@@ -1,5 +1,10 @@
 <!DOCTYPE html><html  lang="de"><head><title data-rh="true"></title><meta charSet="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><link rel="manifest" href="/dots/manifest.json"/><meta name="theme-color" content="#F7F8FC"/><meta name="mobile-web-app-capable" content="yes"/><meta name="apple-mobile-web-app-capable" content="yes"/><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/><meta name="apple-mobile-web-app-title" content="dots"/><link rel="apple-touch-icon" href="/dots/apple-touch-icon.png"/><style id="expo-reset">#root,body,html{height:100%}body{overflow:hidden}#root{display:flex}</style><style>
-html, body { background-color: #F7F8FC; }
+html, body { height: 100%; background-color: #F7F8FC; }
+/* iOS-Standalone-PWA: height:100% lässt die untere Safe-Area (Home-Indikator)
+   teils frei -> der weiße Body-Hintergrund scheint dort als Streifen durch.
+   Die dynamische Viewport-Höhe (100dvh) füllt zuverlässig bis zur echten
+   Bildschirmkante, sodass die App (nicht der Body) bis ganz unten reicht. */
+#root { min-height: 100dvh; }
 @media (prefers-color-scheme: dark) { html, body { background-color: #0B0B0F; } }
 </style><style id="react-native-stylesheet">[stylesheet-group="0"]{}
 body{margin:0;}
