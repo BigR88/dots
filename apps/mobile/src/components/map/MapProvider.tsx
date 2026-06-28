@@ -146,6 +146,12 @@ export function MapProvider({
         scrollEnabled={false}
         bounces={false}
         startInLoadingState={false}
+        // iOS: KEINE automatische Safe-Area-Einrückung — sonst schiebt WKWebView
+        // den Karteninhalt unter der Dynamic Island nach unten und legt einen
+        // weißen Streifen (Default-Hintergrund des ScrollViews) frei. Der dunkle
+        // Container-Hintergrund (#0b1622) deckt das kurze Laden ab.
+        contentInsetAdjustmentBehavior="never"
+        automaticallyAdjustContentInsets={false}
         style={styles.fill}
       />
     </View>
