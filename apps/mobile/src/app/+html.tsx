@@ -44,11 +44,15 @@ export default function Root({ children }: PropsWithChildren) {
 }
 
 const BODY_CSS = `
-html, body { height: 100%; background-color: #F7F8FC; }
-/* iOS-Standalone-PWA: height:100% lässt die untere Safe-Area (Home-Indikator)
-   teils frei -> der weiße Body-Hintergrund scheint dort als Streifen durch.
-   Die dynamische Viewport-Höhe (100dvh) füllt zuverlässig bis zur echten
-   Bildschirmkante, sodass die App (nicht der Body) bis ganz unten reicht. */
-#root { min-height: 100dvh; }
+html, body, #root { height: 100%; }
+/* iOS-Standalone-PWA: height:100% deckt die untere Safe-Area (Home-Indikator)
+   nicht zuverlässig ab -> der weiße Body-Hintergrund scheint dort als Streifen
+   durch. 100dvh = echte sichtbare Viewport-Höhe. Auf ALLE drei Ebenen (html,
+   body, #root) angewandt, damit der Body (overflow:hidden) nichts abschneidet
+   und die App bis zur Bildschirmkante reicht. */
+@supports (height: 100dvh) {
+  html, body, #root { height: 100dvh; }
+}
+html, body { background-color: #F7F8FC; }
 @media (prefers-color-scheme: dark) { html, body { background-color: #0B0B0F; } }
 `;
