@@ -7,7 +7,7 @@ const USE_NATIVE_DRIVER = Platform.OS !== 'web';
  * Dezenter, selbst-ausblendender Hinweis (z. B. „Standort nicht verfügbar").
  * Schwebt unter der Top-Steuerung; pointerEvents none, blockiert die Karte nicht.
  */
-export function MapToast({ message, bottom }: { message: string | null; bottom: number }) {
+export function MapToast({ message, top }: { message: string | null; top: number }) {
   const fade = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -20,7 +20,7 @@ export function MapToast({ message, bottom }: { message: string | null; bottom: 
 
   if (!message) return null;
   return (
-    <Animated.View pointerEvents="none" style={[styles.wrap, { bottom, opacity: fade }]}>
+    <Animated.View pointerEvents="none" style={[styles.wrap, { top, opacity: fade }]}>
       <Text style={styles.text}>{message}</Text>
     </Animated.View>
   );
@@ -35,7 +35,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 9,
     borderRadius: 999,
-    zIndex: 40,
+    zIndex: 60,
     shadowColor: '#000',
     shadowOpacity: 0.3,
     shadowRadius: 12,

@@ -91,7 +91,7 @@ export function EventBottomSheet({
   const bottom = insets.bottom + 96; // klar über der schwebenden Tab-Leiste (Oberkante ~ insets+64)
 
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+    <View style={[StyleSheet.absoluteFill, { zIndex: 50 }]} pointerEvents="box-none">
       {/* Backdrop — Tap schließt */}
       <Animated.View style={[styles.backdrop, { opacity: fade }]} pointerEvents="auto">
         <Pressable style={StyleSheet.absoluteFill} onPress={close} accessibilityLabel="Schließen" />
