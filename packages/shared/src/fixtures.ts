@@ -39,6 +39,8 @@ const VENUES: Record<string, Venue> = {
   longisland: v('Long Island Beach Bar', 'Weseler Werft 5', 8.7008, 50.1083),
   kleinmarkthalle: v('Kleinmarkthalle', 'Hasengasse 5-7', 8.6849, 50.1129),
   festhalle: v('Festhalle', 'Ludwig-Erhard-Anlage 1', 8.6503, 50.1118),
+  pulse: v('Pulse Club', 'Hanauer Landstraße 52', 8.7015, 50.1176),
+  velvet: v('Velvet Rooftop', 'Eschersheimer Landstraße 14', 8.6802, 50.1205),
 };
 
 function v(name: string, address: string, lon: number, lat: number): Venue {
@@ -136,7 +138,7 @@ const SEED_SHIFT_MS = (() => {
 const shiftSeedTime = (iso: string): string =>
   new Date(new Date(iso).getTime() + SEED_SHIFT_MS).toISOString();
 
-export const FIXTURE_EVENTS: DotsEvent[] = SEED.map((s) => {
+const SEED_EVENTS: DotsEvent[] = SEED.map((s) => {
   const venue = VENUES[s.venue];
   return {
     id: s.id,
@@ -169,6 +171,76 @@ export const FIXTURE_EVENTS: DotsEvent[] = SEED.map((s) => {
     favoritesCount: 0,
   };
 });
+
+// ── „Live"-Demo: relativ zu JETZT datiert ───────────────────────────────────
+// Die Seed-Events oben hängen an einer festen Tageszeit; je nach aktueller Uhr
+// ist daher evtl. nichts „live". Diese Events werden relativ zur aktuellen Zeit
+// gesetzt, damit „Läuft jetzt" und „Startet bald" immer demonstrierbar sind.
+interface NowSeed {
+  id: string;
+  title: string;
+  description: string;
+  venue: keyof typeof VENUES;
+  category: string;
+  genre?: string;
+  vibes: string[];
+  price: DotsEvent['priceType'];
+  min?: number;
+  max?: number;
+  age?: number;
+  /** Start relativ zu jetzt in Minuten (negativ = läuft bereits). */
+  startMin: number;
+  /** Dauer in Stunden. */
+  durH: number;
+  pop: number;
+}
+
+const NOW_MS = Date.now();
+
+function nowEvent(p: NowSeed): DotsEvent {
+  const venue = VENUES[p.venue];
+  const start = new Date(NOW_MS + p.startMin * 60_000);
+  const end = new Date(start.getTime() + p.durH * 3_600_000);
+  return {
+    id: p.id,
+    title: p.title,
+    description: p.description,
+    status: 'published',
+    startAt: start.toISOString(),
+    endAt: end.toISOString(),
+    doorsAt: null,
+    venueId: venue.id,
+    venue,
+    location: venue.location,
+    addressOverride: null,
+    categoryId: p.category,
+    category: cat(p.category),
+    musicGenre: p.genre ?? null,
+    vibeTags: p.vibes,
+    priceType: p.price,
+    priceMin: p.min ?? null,
+    priceMax: p.max ?? null,
+    currency: 'EUR',
+    ageRestriction: p.age ?? null,
+    coverImageUrl: null,
+    ticketUrl: null,
+    externalUrl: null,
+    organizerId: null,
+    organizer: null,
+    sourceUrl: null,
+    popularityScore: p.pop,
+    favoritesCount: 0,
+  };
+}
+
+const LIVE_DEMO: DotsEvent[] = [
+  nowEvent({ id: 'live1', title: 'Pulse — Techno Now', description: 'Treibender Techno, gerade jetzt auf dem Floor.', venue: 'pulse', category: 'clubbing', genre: 'Techno', vibes: ['Popular', 'Techno'], price: 'paid', min: 12, max: 15, age: 18, startMin: -40, durH: 6, pop: 90 }),
+  nowEvent({ id: 'live2', title: 'Gibson Live Floor', description: 'House-Allnighter — läuft bereits.', venue: 'gibson', category: 'clubbing', genre: 'House', vibes: ['House', 'Guestlist'], price: 'paid', min: 14, age: 18, startMin: -75, durH: 6, pop: 84 }),
+  nowEvent({ id: 'soon1', title: 'Velvet Rooftop Sundown', description: 'Sundowner mit melodischen Beats — startet gleich.', venue: 'velvet', category: 'rooftop', genre: 'Melodic House', vibes: ['Rooftop', 'Sunset'], price: 'paid', min: 10, age: 21, startMin: 45, durH: 4, pop: 72 }),
+  nowEvent({ id: 'soon2', title: 'Lavaña After Work', description: 'After-Work-Drinks über den Dächern — gleich los.', venue: 'lavana', category: 'rooftop', genre: 'Disco', vibes: ['Afterwork', 'Cocktails'], price: 'free', age: 21, startMin: 80, durH: 4, pop: 58 }),
+];
+
+export const FIXTURE_EVENTS: DotsEvent[] = [...SEED_EVENTS, ...LIVE_DEMO];
 
 // ── Demo-Social-Daten (bis Supabase/Auth verbunden ist) ─────────────────────
 export interface DemoFriend {
