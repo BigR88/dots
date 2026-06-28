@@ -8,6 +8,7 @@ import {
   type ExtractedEvent,
   type ImportedEventCandidate,
   type PriceType,
+  type SourceKind,
 } from '@dots/shared';
 import { isSupabaseConfigured, supabase } from './supabase';
 import { getVenues } from './refdata';
@@ -23,12 +24,15 @@ import { berlinWallToUtcIso } from './importer/time';
 
 export interface NewCandidate {
   sourceId: string | null;
+  sourceKind: SourceKind | null;
+  sourceName: string | null;
   rawInput: string | null;
   rawImagePath: string | null;
   extracted: ExtractedEvent;
   confidenceScore: number;
   possibleDuplicateOf: string | null;
   missingFields: string[];
+  warnings: string[];
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -43,6 +47,9 @@ function mapCandidate(row: any): ImportedEventCandidate {
     confidenceScore: Number(row.confidence_score ?? 0),
     possibleDuplicateOf: row.possible_duplicate_of ?? null,
     missingFields: row.missing_fields ?? [],
+    warnings: row.warnings ?? [],
+    sourceKind: row.source_kind ?? null,
+    sourceName: row.source_name ?? null,
     reviewNote: row.review_note ?? null,
     promotedEventId: row.promoted_event_id ?? null,
     createdAt: row.created_at,
@@ -62,6 +69,7 @@ async function readAll(): Promise<ImportedEventCandidate[]> {
       ...r,
       confidenceScore: Number(r.confidenceScore ?? 0),
       missingFields: r.missingFields ?? [],
+      warnings: r.warnings ?? [],
       extracted: (r.extracted ?? {}) as ExtractedEvent,
     }));
   } catch {
@@ -103,25 +111,36 @@ export async function getCandidate(id: string): Promise<ImportedEventCandidate |
   return (await readAll()).find((r) => r.id === id) ?? null;
 }
 
-export async function insertCandidate(c: NewCandidate): Promise<void> {
+/** Legt einen Kandidaten an und gibt seine id zurück. */
+export async function insertCandidate(c: NewCandidate): Promise<string> {
   if (isSupabaseConfigured && supabase) {
-    const { error } = await supabase.from('imported_event_candidates').insert({
-      source_id: c.sourceId,
-      status: 'pending',
-      raw_input: c.rawInput,
-      raw_image_path: c.rawImagePath,
-      extracted: c.extracted,
-      confidence_score: c.confidenceScore,
-      possible_duplicate_of: c.possibleDuplicateOf,
-      missing_fields: c.missingFields,
-    });
+    const { data, error } = await supabase
+      .from('imported_event_candidates')
+      .insert({
+        source_id: c.sourceId,
+        source_kind: c.sourceKind,
+        source_name: c.sourceName,
+        status: 'pending',
+        raw_input: c.rawInput,
+        raw_image_path: c.rawImagePath,
+        extracted: c.extracted,
+        confidence_score: c.confidenceScore,
+        possible_duplicate_of: c.possibleDuplicateOf,
+        missing_fields: c.missingFields,
+        warnings: c.warnings,
+      })
+      .select('id')
+      .single();
     if (error) throw error;
-    return;
+    return data.id as string;
   }
   const rows = await readAll();
+  const id = crypto.randomUUID();
   rows.push({
-    id: crypto.randomUUID(),
+    id,
     sourceId: c.sourceId,
+    sourceKind: c.sourceKind,
+    sourceName: c.sourceName,
     status: 'pending',
     rawInput: c.rawInput,
     rawImagePath: c.rawImagePath,
@@ -129,11 +148,60 @@ export async function insertCandidate(c: NewCandidate): Promise<void> {
     confidenceScore: c.confidenceScore,
     possibleDuplicateOf: c.possibleDuplicateOf,
     missingFields: c.missingFields,
+    warnings: c.warnings,
     reviewNote: null,
     promotedEventId: null,
     createdAt: new Date().toISOString(),
   });
   await writeAll(rows);
+  return id;
+}
+
+function normTitle(s: string | null | undefined): string {
+  return (s ?? '').toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Bereits in der Queue (pending/approved) liegender Kandidat zum selben Event?
+ * Verhindert, dass Re-Scans denselben Event mehrfach einreihen. Vergleicht
+ * normalisierten Titel + Startzeit (±2 h).
+ */
+export async function findDuplicateCandidate(title: string, startIso: string): Promise<string | null> {
+  const nt = normTitle(title);
+  if (!nt) return null;
+  const startMs = new Date(startIso).getTime();
+  const sameStart = (other: string | null | undefined): boolean => {
+    if (!other) return false;
+    const t = new Date(other).getTime();
+    return !Number.isNaN(t) && !Number.isNaN(startMs) && Math.abs(t - startMs) <= 2 * 60 * 60 * 1000;
+  };
+  if (isSupabaseConfigured && supabase) {
+    const { data, error } = await supabase
+      .from('imported_event_candidates')
+      .select('id, extracted, status')
+      .in('status', ['pending', 'approved'])
+      .order('created_at', { ascending: false })
+      .limit(500);
+    if (error) throw error;
+    /* eslint-disable @typescript-eslint/no-explicit-any */
+    for (const r of (data ?? []) as any[]) {
+      const ex = r.extracted ?? {};
+      if (normTitle(ex.title) === nt && sameStart(ex.start_datetime)) return r.id;
+    }
+    /* eslint-enable @typescript-eslint/no-explicit-any */
+    return null;
+  }
+  const rows = await readAll();
+  for (const r of rows) {
+    if (
+      (r.status === 'pending' || r.status === 'approved') &&
+      normTitle(r.extracted?.title) === nt &&
+      sameStart(r.extracted?.start_datetime)
+    ) {
+      return r.id;
+    }
+  }
+  return null;
 }
 
 /** Liefert die ID eines möglichen Duplikat-Events (oder null). */
@@ -194,33 +262,28 @@ export async function promoteCandidate(
   const ex = { ...row.extracted, ...(overrides as Partial<ExtractedEvent>) } as ExtractedEvent & {
     venue_id?: string;
   };
-  if (!ex.title || !ex.date) throw new Error('Titel oder Datum fehlt.');
+  if (!ex.title) throw new Error('Titel fehlt.');
+  if (!ex.start_datetime) throw new Error('start_datetime fehlt — Datum vor der Freigabe ergänzen.');
 
+  const startDate = new Date(ex.start_datetime);
+  if (Number.isNaN(startDate.getTime())) throw new Error('start_datetime ist kein gültiges Datum.');
   const eventId = crypto.randomUUID();
-  const startAt = berlinWallToUtcIso(ex.date, ex.start_time) ?? new Date().toISOString();
-  let endAt = ex.end_time ? berlinWallToUtcIso(ex.date, ex.end_time) : null;
-  // Ende vor Start (nur bei echter Startzeit) → über Mitternacht: Folgetag.
-  if (endAt && ex.start_time && new Date(endAt) <= new Date(startAt)) {
-    const next = new Date(`${ex.date}T00:00:00Z`);
-    next.setUTCDate(next.getUTCDate() + 1);
-    endAt = berlinWallToUtcIso(next.toISOString().slice(0, 10), ex.end_time);
-  }
+  const startAt = startDate.toISOString();
+  const endDate = ex.end_datetime ? new Date(ex.end_datetime) : null;
+  const endAt = endDate && !Number.isNaN(endDate.getTime()) ? endDate.toISOString() : null;
 
   const venues = await getVenues();
+  const venueName = ex.venue_name?.toLowerCase().trim();
   const venue =
     venues.find((v) => v.id === ex.venue_id) ??
-    venues.find(
-      (v) =>
-        ex.location_name &&
-        v.name.toLowerCase().includes(ex.location_name.toLowerCase().trim()),
-    ) ??
+    venues.find((v) => venueName && v.name.toLowerCase().includes(venueName)) ??
     null;
 
-  const price = parsePrice(ex.price);
+  const price = parsePrice(ex.price_text);
   const event: DotsEvent = {
     id: eventId,
     title: ex.title,
-    description: ex.description || null,
+    description: ex.description || ex.short_description || null,
     status: 'pending_review',
     startAt,
     endAt,
@@ -232,12 +295,12 @@ export async function promoteCandidate(
     categoryId: ex.category || null,
     category: categoryFor(ex.category),
     musicGenre: ex.music_genre || null,
-    vibeTags: ex.vibe_tags ?? [],
+    vibeTags: [],
     priceType: price.priceType,
     priceMin: price.priceMin,
     priceMax: null,
     currency: 'EUR',
-    ageRestriction: ex.age_restriction ? Number(ex.age_restriction.replace(/[^0-9]/g, '')) || null : null,
+    ageRestriction: ex.min_age ? Number(ex.min_age.replace(/[^0-9]/g, '')) || null : null,
     coverImageUrl: null,
     ticketUrl: httpUrl(ex.ticket_url),
     externalUrl: httpUrl(ex.source_url),
@@ -256,19 +319,27 @@ export async function promoteCandidate(
 }
 
 // ── Helfer ──────────────────────────────────────────────────────────────────
-function categoryFor(slug: string): Category | null {
+function categoryFor(slug: string | null): Category | null {
   const d = slug ? CATEGORY_BY_SLUG[slug] : undefined;
   if (!d) return null;
-  return { id: slug, slug, name: d.name, icon: d.icon, color: d.color, sortOrder: 0, isActive: true };
+  return { id: slug as string, slug: slug as string, name: d.name, icon: d.icon, color: d.color, sortOrder: 0, isActive: true };
 }
 
-function parsePrice(price: string): { priceType: PriceType; priceMin: number | null } {
+function parsePrice(price: string | null): { priceType: PriceType; priceMin: number | null } {
   const p = (price || '').toLowerCase();
   if (/free|frei|kostenlos|gratis|umsonst/.test(p)) return { priceType: 'free', priceMin: null };
   const m = price?.match(/[0-9][0-9.,]*/);
   if (!m) return { priceType: price?.trim() ? 'paid' : 'unknown', priceMin: null };
-  // Deutsche Schreibweise: '.' = Tausender entfernen, ',' = Dezimal → '.'
-  const n = Number(m[0].replace(/\./g, '').replace(',', '.'));
+  const raw = m[0];
+  let numeric: string;
+  if (raw.includes(',')) {
+    numeric = raw.replace(/\./g, '').replace(',', '.'); // dt.: '.' Tausender, ',' Dezimal
+  } else if (/^\d{1,3}(\.\d{3})+$/.test(raw)) {
+    numeric = raw.replace(/\./g, ''); // reine Tausendergruppen: 1.500
+  } else {
+    numeric = raw; // '.' als Dezimaltrenner belassen: 10.50 / 12
+  }
+  const n = Number(numeric);
   if (!Number.isFinite(n) || n < 0 || n > 999999.99) return { priceType: 'paid', priceMin: null };
   return { priceType: 'paid', priceMin: n };
 }

@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { DotsEvent } from '@dots/shared';
 import { palette } from '@dots/shared';
 import { hexA } from '@/lib/color';
+import { eventBadges, type BadgeTone } from '@/lib/badges';
 import { formatPrice, formatTime, isFree } from '@/lib/format';
 import { useTheme } from '@/theme/theme';
 import { FavoriteButton } from './FavoriteButton';
@@ -28,6 +29,13 @@ export function EventCard({ event, onPress, rank }: Props) {
   const free = isFree(event);
   // Kategorie-Farbe (z. B. Clubbing = Lila, Open Air = Grün); Fallback = Marken-Lila.
   const color = event.category?.color ?? t.accent;
+
+  // Badges: „Kostenlos" zeigt schon die Preis-Pille → hier weglassen (keine Doppelung).
+  const badges = eventBadges(event, { trending: rank != null && rank <= 3 }).filter(
+    (b) => b.tone !== 'free',
+  );
+  const badgeColor = (tone: BadgeTone): string =>
+    tone === 'time' ? t.accent : tone === 'hot' ? '#C13CF0' : t.colors.textSecondary;
 
   return (
     <Pressable
@@ -62,6 +70,15 @@ export function EventCard({ event, onPress, rank }: Props) {
             <Text numberOfLines={1} style={[styles.venue, { color: t.colors.textSecondary }]}>
               {event.venue?.name ?? 'Frankfurt am Main'}
             </Text>
+            {badges.length > 0 && (
+              <View style={styles.badgeRow}>
+                {badges.map((b) => (
+                  <View key={b.label} style={[styles.badge, { backgroundColor: hexA(badgeColor(b.tone), 0.14) }]}>
+                    <Text style={[styles.badgeText, { color: badgeColor(b.tone) }]}>{b.label}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
           </View>
 
           {/* Rechts: Preis oben, Herz darunter */}
@@ -115,6 +132,9 @@ const styles = StyleSheet.create({
   meta: { fontSize: 11, fontWeight: '800', letterSpacing: 0.6, textTransform: 'uppercase' },
   title: { fontSize: 17.5, fontWeight: '800', letterSpacing: -0.4, lineHeight: 22 },
   venue: { fontSize: 13.5, fontWeight: '500' },
+  badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 },
+  badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 },
+  badgeText: { fontSize: 10.5, fontWeight: '800', letterSpacing: 0.2 },
   right: { alignItems: 'flex-end', gap: 12 },
   pricePill: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999 },
   price: { fontSize: 12.5, fontWeight: '800' },

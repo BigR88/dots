@@ -2,9 +2,11 @@ import type { CandidateStatus, DotsEvent, EventStatus } from '@dots/shared';
 
 export const STATUS_LABELS: Record<EventStatus, string> = {
   draft: 'Entwurf',
+  needs_review: 'Review nötig',
   pending_review: 'Zur Prüfung',
   published: 'Veröffentlicht',
   archived: 'Archiviert',
+  expired: 'Abgelaufen',
   rejected: 'Abgelehnt',
 };
 
@@ -22,18 +24,43 @@ export function confidenceTier(score: number): 'high' | 'mid' | 'low' {
   return 'low';
 }
 
-/** Datum+Startzeit eines Kandidaten (aus extracted) hübsch darstellen. */
-export function formatCandidateWhen(date: string, startTime: string): string {
-  if (!date) return '—';
-  const d = new Date(`${date}T${startTime || '00:00'}:00`);
-  if (Number.isNaN(d.getTime())) return `${date}${startTime ? ` ${startTime}` : ''}`;
-  const datePart = new Intl.DateTimeFormat('de-DE', {
+/** Startzeitpunkt eines Kandidaten (ISO start_datetime) hübsch darstellen. */
+export function formatCandidateWhen(startDatetime: string | null): string {
+  if (!startDatetime) return '— (Datum offen)';
+  const d = new Date(startDatetime);
+  if (Number.isNaN(d.getTime())) return startDatetime;
+  return `${new Intl.DateTimeFormat('de-DE', {
     weekday: 'short',
     day: '2-digit',
     month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
     timeZone: 'Europe/Berlin',
-  }).format(d);
-  return startTime ? `${datePart} · ${startTime}` : datePart;
+  }).format(d)} Uhr`;
+}
+
+/**
+ * ISO-Datetime → Wert für <input type="datetime-local"> in Europe/Berlin-Wandzeit.
+ * BEWUSST zeitzonen-fest (nicht getHours()): das Submit (datetimeOverride →
+ * berlinWallToUtcIso) interpretiert den Wert ebenfalls als Berlin-Wandzeit, sonst
+ * driftet der Round-Trip auf Nicht-Berlin-Servern (z. B. UTC-Deploy).
+ */
+export function toDatetimeLocal(iso: string | null): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Berlin',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(d);
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? '';
+  const hour = get('hour') === '24' ? '00' : get('hour'); // en-CA kann '24' liefern
+  return `${get('year')}-${get('month')}-${get('day')}T${hour}:${get('minute')}`;
 }
 
 const dateFmt = new Intl.DateTimeFormat('de-DE', {

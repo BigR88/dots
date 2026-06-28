@@ -1,4 +1,5 @@
 import { CATEGORIES, type ImportedEventCandidate, type Venue } from '@dots/shared';
+import { toDatetimeLocal } from '@/lib/format';
 import {
   approveCandidateAction,
   markDuplicateCandidateAction,
@@ -31,6 +32,12 @@ export function CandidateReview({
         </div>
       )}
 
+      {candidate.warnings.length > 0 && (
+        <div className="notice err">
+          ⚠ {candidate.warnings.join(' · ')}
+        </div>
+      )}
+
       {candidate.rawInput && (
         <details className="raw">
           <summary>Original-Input anzeigen</summary>
@@ -48,31 +55,20 @@ export function CandidateReview({
 
         <div className="form-row">
           <div className="field">
-            <label>Datum *</label>
-            <input type="date" name="date" defaultValue={e.date ?? ''} required />
-          </div>
-          <div className="field">
-            <label>Konfidenz</label>
-            <input value={`${Math.round(candidate.confidenceScore * 100)} %`} readOnly disabled />
-          </div>
-        </div>
-
-        <div className="form-row">
-          <div className="field">
-            <label>Start</label>
-            <input type="time" name="start_time" defaultValue={e.start_time ?? ''} />
+            <label>Start *</label>
+            <input type="datetime-local" name="start_datetime" defaultValue={toDatetimeLocal(e.start_datetime)} required />
           </div>
           <div className="field">
             <label>Ende</label>
-            <input type="time" name="end_time" defaultValue={e.end_time ?? ''} />
+            <input type="datetime-local" name="end_datetime" defaultValue={toDatetimeLocal(e.end_datetime)} />
           </div>
         </div>
 
         <div className="field">
-          <label>Location (Name) *</label>
-          <input name="location_name" defaultValue={e.location_name ?? ''} />
+          <label>Location (Name)</label>
+          <input name="venue_name" defaultValue={e.venue_name ?? ''} />
           <span className="hint">
-            Leer „Venue" lassen = automatischer Abgleich über den Namen. Oder hier fest zuordnen:
+            Venue unten leer lassen = automatischer Abgleich über den Namen. Oder hier fest zuordnen:
           </span>
         </div>
         <div className="field">
@@ -118,18 +114,18 @@ export function CandidateReview({
 
         <div className="form-row">
           <div className="field">
-            <label>Preis</label>
-            <input name="price" defaultValue={e.price ?? ''} placeholder="z. B. 15 oder free" />
+            <label>Preis (Text)</label>
+            <input name="price_text" defaultValue={e.price_text ?? ''} placeholder="z. B. 15 € oder free" />
           </div>
           <div className="field">
             <label>Altersfreigabe</label>
-            <input name="age_restriction" defaultValue={e.age_restriction ?? ''} placeholder="18" />
+            <input name="min_age" defaultValue={e.min_age ?? ''} placeholder="18" />
           </div>
         </div>
 
         <div className="field">
-          <label>Vibe-Tags (Komma-getrennt)</label>
-          <input name="vibeTags" defaultValue={(e.vibe_tags ?? []).join(', ')} />
+          <label>Kurzbeschreibung (Karte)</label>
+          <input name="short_description" defaultValue={e.short_description ?? ''} />
         </div>
 
         <div className="field">
@@ -149,8 +145,8 @@ export function CandidateReview({
         </div>
 
         <div className="field">
-          <label>Veranstalter</label>
-          <input name="organizer" defaultValue={e.organizer ?? ''} />
+          <label>Konfidenz</label>
+          <input value={`${Math.round((candidate.confidenceScore ?? 0) * 100)} %`} readOnly disabled />
         </div>
 
         <div className="form-actions">

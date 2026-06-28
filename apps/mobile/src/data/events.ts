@@ -128,7 +128,7 @@ function mapRow(row: any): DotsEvent {
     priceMax: row.price_max != null ? Number(row.price_max) : null,
     currency: row.currency ?? 'EUR',
     ageRestriction: row.age_restriction ?? null,
-    coverImageUrl: row.cover_image_path ?? null,
+    coverImageUrl: row.cover_image_path ?? row.image_url ?? null,
     ticketUrl: row.ticket_url ?? null,
     externalUrl: row.external_url ?? null,
     organizerId: row.organizer_id ?? null,

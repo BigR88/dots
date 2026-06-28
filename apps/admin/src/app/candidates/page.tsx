@@ -66,8 +66,8 @@ export default async function CandidatesPage({
                     </div>
                     {e.music_genre && <div className="event-sub">{e.music_genre}</div>}
                   </td>
-                  <td>{formatCandidateWhen(e.date, e.start_time)}</td>
-                  <td>{e.location_name || '—'}</td>
+                  <td>{formatCandidateWhen(e.start_datetime)}</td>
+                  <td>{e.venue_name || '—'}</td>
                   <td>
                     <span className={`pill conf-${tier}`}>
                       {Math.round(c.confidenceScore * 100)}%
@@ -103,7 +103,7 @@ export default async function CandidatesPage({
                   <td>
                     <Link href={`/candidates/${c.id}`}>{c.extracted.title || '(ohne Titel)'}</Link>
                   </td>
-                  <td>{formatCandidateWhen(c.extracted.date, c.extracted.start_time)}</td>
+                  <td>{formatCandidateWhen(c.extracted.start_datetime)}</td>
                   <td>
                     <span className={`pill pill-${c.status === 'approved' ? 'published' : 'rejected'}`}>
                       {CANDIDATE_STATUS_LABELS[c.status]}

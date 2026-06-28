@@ -11,10 +11,12 @@ import {
 } from '@dots/shared';
 import { getVenues } from './refdata';
 import { getEvent, removeEvent, resetDemoData, saveEvent } from './store';
-import { ingest, type IngestSummary } from './importer/pipeline';
+import { ingest, ingestFromSource, type IngestSummary } from './importer/pipeline';
 import type { ImageMediaType } from './importer/extract';
+import { berlinWallToUtcIso } from './importer/time';
 import { promoteCandidate, updateCandidateStatus } from './candidates-store';
 import { getSource, removeSource, saveSource } from './sources-store';
+import { insertUpload } from './uploads-store';
 import type { SourceType } from '@dots/shared';
 
 function str(fd: FormData, key: string): string {
@@ -40,8 +42,9 @@ async function validSourceId(raw: string): Promise<string | null> {
 
 function summaryMsg(s: IngestSummary): string {
   const parts = [`${s.imported} importiert`, `${s.extracted} erkannt`];
-  if (s.skippedPast > 0) parts.push(`${s.skippedPast} vergangen übersprungen`);
-  if (s.invalid > 0) parts.push(`${s.invalid} ungültig verworfen`);
+  if (s.skippedPast > 0) parts.push(`${s.skippedPast} vergangen`);
+  if (s.skippedDuplicate > 0) parts.push(`${s.skippedDuplicate} Duplikat(e)`);
+  if (s.invalid > 0) parts.push(`${s.invalid} ungültig`);
   return parts.join(' · ');
 }
 
@@ -161,7 +164,10 @@ export async function pasteImportAction(formData: FormData): Promise<void> {
 
   let redirectTo = '/candidates';
   try {
-    const s = await ingest({ text, context }, sourceId);
+    const s = await ingest(
+      { text, context },
+      { sourceId, sourceKind: 'manual', sourceName: context ?? null },
+    );
     redirectTo += `?msg=${encodeURIComponent(summaryMsg(s))}`;
   } catch (e) {
     redirectTo += `?err=${encodeURIComponent(errMsg(e))}`;
@@ -188,9 +194,28 @@ export async function posterImportAction(formData: FormData): Promise<void> {
   let redirectTo = '/candidates';
   try {
     const imageBase64 = Buffer.from(await f.arrayBuffer()).toString('base64');
-    const s = await ingest({ imageBase64, imageMediaType: mediaType, context }, sourceId);
+    const s = await ingest(
+      { imageBase64, imageMediaType: mediaType, context },
+      { sourceId, sourceKind: 'instagram_upload', sourceName: context ?? null },
+    );
+    await insertUpload({
+      fileType: mediaType,
+      sourceKind: 'instagram_upload',
+      rawOcrText: null, // Bild-Bytes werden nicht persistiert (kein Rehosting)
+      extractedJson: { extracted: s.extracted, imported: s.imported },
+      status: s.candidateIds.length ? 'linked' : 'extracted',
+      candidateId: s.candidateIds[0] ?? null,
+    }).catch(() => {});
     redirectTo += `?msg=${encodeURIComponent(summaryMsg(s))}`;
   } catch (e) {
+    await insertUpload({
+      fileType: mediaType,
+      sourceKind: 'instagram_upload',
+      rawOcrText: null,
+      extractedJson: null,
+      status: 'failed',
+      candidateId: null,
+    }).catch(() => {});
     redirectTo += `?err=${encodeURIComponent(errMsg(e))}`;
   }
   revalidatePath('/candidates');
@@ -201,32 +226,35 @@ export async function posterImportAction(formData: FormData): Promise<void> {
 
 const OVERRIDE_TEXT_FIELDS = [
   'title',
-  'date',
-  'start_time',
-  'end_time',
-  'location_name',
+  'venue_name',
+  'description',
+  'short_description',
+  'category',
+  'music_genre',
   'address',
   'city',
-  'category',
-  'price',
-  'age_restriction',
-  'description',
-  'music_genre',
+  'price_text',
+  'min_age',
   'ticket_url',
   'source_url',
-  'organizer',
 ] as const;
+
+/** datetime-local ("2026-06-20T23:00", Berlin-Wandzeit) → UTC-ISO fürs Promote. */
+function datetimeOverride(fd: FormData, key: string): string {
+  const v = str(fd, key);
+  if (!v) return '';
+  const [date, time] = v.split('T');
+  return berlinWallToUtcIso(date, time || '00:00') ?? '';
+}
 
 /** Korrigierte Felder aus dem Review-Formular → Overrides fürs Promote. */
 function buildOverrides(fd: FormData): Record<string, unknown> {
   const o: Record<string, unknown> = {};
   for (const f of OVERRIDE_TEXT_FIELDS) o[f] = str(fd, f);
+  o.start_datetime = datetimeOverride(fd, 'start_datetime');
+  o.end_datetime = datetimeOverride(fd, 'end_datetime');
   const venueId = str(fd, 'venueId');
   if (venueId) o.venue_id = venueId;
-  o.vibe_tags = str(fd, 'vibeTags')
-    .split(',')
-    .map((s) => s.trim().toLowerCase())
-    .filter(Boolean);
   return o;
 }
 
@@ -289,4 +317,22 @@ export async function deleteSourceAction(formData: FormData): Promise<void> {
     revalidatePath('/sources');
   }
   redirect('/sources');
+}
+
+/** Eine Quelle jetzt scannen (Website/JSON-LD/iCal/RSS) → Kandidaten. */
+export async function scanSourceAction(formData: FormData): Promise<void> {
+  const id = str(formData, 'id');
+  const source = id ? await getSource(id) : null;
+  if (!source) redirect(`/sources?err=${encodeURIComponent('Quelle nicht gefunden.')}`);
+
+  let redirectTo = '/candidates';
+  try {
+    const s = await ingestFromSource(source!);
+    redirectTo += `?msg=${encodeURIComponent(`Scan „${source!.name ?? 'Quelle'}" · ${summaryMsg(s)}`)}`;
+  } catch (e) {
+    redirectTo = `/sources?err=${encodeURIComponent(errMsg(e))}`;
+  }
+  revalidatePath('/candidates');
+  revalidatePath('/sources');
+  redirect(redirectTo);
 }

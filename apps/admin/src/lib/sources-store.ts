@@ -1,6 +1,6 @@
 import { promises as fs } from 'fs';
 import path from 'path';
-import type { EventSource, SourceType } from '@dots/shared';
+import type { CheckFrequency, EventSource, SourceType } from '@dots/shared';
 import { isSupabaseConfigured, supabase } from './supabase';
 
 /**
@@ -14,6 +14,9 @@ export interface SourceInput {
   name: string;
   url: string | null;
   isTrusted: boolean;
+  active?: boolean;
+  checkFrequency?: CheckFrequency;
+  notes?: string | null;
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -25,7 +28,12 @@ function mapSource(row: any): EventSource {
     url: row.url ?? null,
     organizerId: row.organizer_id ?? null,
     isTrusted: row.is_trusted ?? false,
+    active: row.active ?? true,
+    checkFrequency: row.check_frequency ?? 'manual',
+    lastCheckedAt: row.last_checked_at ?? null,
+    notes: row.notes ?? null,
     createdAt: row.created_at,
+    updatedAt: row.updated_at ?? null,
   };
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */
@@ -38,6 +46,7 @@ async function readAll(): Promise<EventSource[]> {
   try {
     return JSON.parse(await fs.readFile(DATA_FILE, 'utf8')) as EventSource[];
   } catch {
+    const now = new Date().toISOString();
     const seed: EventSource[] = [
       {
         id: crypto.randomUUID(),
@@ -46,7 +55,12 @@ async function readAll(): Promise<EventSource[]> {
         url: null,
         organizerId: null,
         isTrusted: true,
-        createdAt: new Date().toISOString(),
+        active: true,
+        checkFrequency: 'manual',
+        lastCheckedAt: null,
+        notes: null,
+        createdAt: now,
+        updatedAt: now,
       },
     ];
     await writeAll(seed);
@@ -82,13 +96,16 @@ export async function getSource(id: string): Promise<EventSource | null> {
 
 export async function saveSource(input: SourceInput): Promise<void> {
   if (isSupabaseConfigured && supabase) {
-    const row = {
+    const row: Record<string, unknown> = {
       id: input.id || crypto.randomUUID(),
       type: input.type,
       name: input.name,
       url: input.url,
       is_trusted: input.isTrusted,
     };
+    if (input.active !== undefined) row.active = input.active;
+    if (input.checkFrequency !== undefined) row.check_frequency = input.checkFrequency;
+    if (input.notes !== undefined) row.notes = input.notes;
     const { error } = await supabase.from('event_sources').upsert(row);
     if (error) throw error;
     return;
@@ -96,6 +113,7 @@ export async function saveSource(input: SourceInput): Promise<void> {
   const rows = await readAll();
   const id = input.id || crypto.randomUUID();
   const existing = rows.find((s) => s.id === id);
+  const now = new Date().toISOString();
   const next: EventSource = {
     id,
     type: input.type,
@@ -103,12 +121,33 @@ export async function saveSource(input: SourceInput): Promise<void> {
     url: input.url,
     organizerId: existing?.organizerId ?? null,
     isTrusted: input.isTrusted,
-    createdAt: existing?.createdAt ?? new Date().toISOString(),
+    active: input.active ?? existing?.active ?? true,
+    checkFrequency: input.checkFrequency ?? existing?.checkFrequency ?? 'manual',
+    lastCheckedAt: existing?.lastCheckedAt ?? null,
+    notes: input.notes ?? existing?.notes ?? null,
+    createdAt: existing?.createdAt ?? now,
+    updatedAt: now,
   };
   const idx = rows.findIndex((s) => s.id === id);
   if (idx >= 0) rows[idx] = next;
   else rows.push(next);
   await writeAll(rows);
+}
+
+/** last_checked_at nach einem Scan aktualisieren. */
+export async function markSourceChecked(id: string): Promise<void> {
+  const now = new Date().toISOString();
+  if (isSupabaseConfigured && supabase) {
+    const { error } = await supabase.from('event_sources').update({ last_checked_at: now }).eq('id', id);
+    if (error) throw error;
+    return;
+  }
+  const rows = await readAll();
+  const row = rows.find((s) => s.id === id);
+  if (row) {
+    row.lastCheckedAt = now;
+    await writeAll(rows);
+  }
 }
 
 export async function removeSource(id: string): Promise<void> {

@@ -464,3 +464,19 @@ tr:hover td {
     grid-template-columns: 1fr;
   }
 }
+
+/* Login */
+.login-wrap {
+  min-height: 70vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.login-card {
+  width: 100%;
+  max-width: 380px;
+}
+.login-title {
+  margin: 0 0 4px;
+  font-size: 24px;
+}

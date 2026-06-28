@@ -1,49 +1,66 @@
 import { z } from 'zod';
 
-// Vertrag Worker ⇄ DB (§6.4). Wird in imported_event_candidates.extracted (jsonb)
-// abgelegt. Phase 6 (KI-Import) validiert LLM-Output gegen dieses Schema.
+// Vertrag Worker ⇄ DB (§6.4 / Ingestion-Spec B). Wird in
+// imported_event_candidates.extracted (jsonb) abgelegt. Die KI-Extraktion
+// validiert ihren Output gegen dieses zod-Schema (= einzige Wahrheit).
+//
+// Felder sind bewusst `nullable` (string | null): Fehlt eine Information, bleibt
+// sie NULL (keine Halluzination) und der Kandidat landet via missing_fields im
+// Review. Datums-/Zeitangaben kommen als ISO 8601 mit Offset (Europe/Berlin),
+// d. h. „heute/morgen/Samstag" sind bereits gegen das aktuelle Datum aufgelöst.
 
 export const extractedEventSchema = z.object({
-  // Pflichtfelder mit .default(''): fehlt ein Feld, soll der Kandidat NICHT still
-  // verworfen werden, sondern über missingFields (REQUIRED_FIELDS) ins Review.
-  title: z.string().default(''),
-  date: z.string().default(''), // YYYY-MM-DD
-  start_time: z.string().default(''), // HH:MM
-  end_time: z.string().default(''),
-  location_name: z.string().default(''),
-  address: z.string().default(''),
+  title: z.string().nullable().default(null),
+  venue_name: z.string().nullable().default(null),
+  description: z.string().nullable().default(null),
+  short_description: z.string().nullable().default(null),
+  category: z.string().nullable().default(null),
+  music_genre: z.string().nullable().default(null),
+  start_datetime: z.string().nullable().default(null), // ISO 8601, z. B. 2026-06-20T23:00:00+02:00
+  end_datetime: z.string().nullable().default(null),
+  timezone: z.string().default('Europe/Berlin'),
+  address: z.string().nullable().default(null),
   city: z.string().default('Frankfurt am Main'),
-  category: z.string().default(''),
-  price: z.string().default(''),
-  age_restriction: z.string().default(''),
-  description: z.string().default(''),
-  music_genre: z.string().default(''),
-  vibe_tags: z.array(z.string()).default([]),
-  ticket_url: z.string().default(''),
-  source_url: z.string().default(''),
-  organizer: z.string().default(''),
-  confidence_score: z.number().min(0).max(1).default(0),
+  price_text: z.string().nullable().default(null),
+  min_age: z.string().nullable().default(null),
+  ticket_url: z.string().nullable().default(null),
+  source_url: z.string().nullable().default(null),
+  confidence_score: z.number().default(0),
+  missing_fields: z.array(z.string()).default([]),
+  warnings: z.array(z.string()).default([]),
 });
 
 export type ExtractedEvent = z.infer<typeof extractedEventSchema>;
 
-// Pflichtfelder, deren Fehlen einen Kandidaten in die Review-Queue zwingt (§6.5).
+// Pflichtfelder, deren Fehlen einen Kandidaten in die Review-Queue zwingt und
+// eine automatische Veröffentlichung verhindert (§6.5). Ohne sicheres Datum
+// (start_datetime) wird NIE auto-veröffentlicht.
 export const REQUIRED_FIELDS: (keyof ExtractedEvent)[] = [
   'title',
-  'date',
-  'location_name',
+  'start_datetime',
+  'venue_name',
 ];
 
 export const AUTO_SUGGEST_THRESHOLD = 0.8;
 export const REVIEW_THRESHOLD = 0.5;
 
+// Erlaubte Kategorie-slugs (müssen mit categories.ts/seed.sql übereinstimmen).
+export const EXTRACTION_CATEGORY_SLUGS = [
+  'day_drinking',
+  'clubbing',
+  'bars',
+  'open_air',
+  'student_party',
+  'rooftop',
+  'live_music',
+  'culture',
+] as const;
+
 // ── Anthropic Tool-Use-Schema (Worker-Seite) ────────────────────────────────
 // JSON-Schema-Spiegel von extractedEventSchema, das die Claude-Extraktion per
-// erzwungenem Tool-Use ausfüllt. BEWUSST OHNE minimum/maximum/format/minLength
-// (würde von der API mit 400 abgelehnt); die Bereichsprüfung übernimmt danach
-// `extractedEventSchema.safeParse` (zod = einzige Wahrheit). Diese Konstanten
-// sind absichtlich SDK-unabhängig getypt, damit @dots/shared keine Abhängigkeit
-// zum Anthropic-SDK braucht.
+// erzwungenem Tool-Use ausfüllt. OHNE minimum/maximum/format/minLength (sonst
+// 400); die Bereichsprüfung übernimmt danach extractedEventSchema.safeParse.
+// SDK-unabhängig getypt, damit @dots/shared keine Anthropic-SDK-Abhängigkeit hat.
 
 export interface AnthropicToolLike {
   name: string;
@@ -51,60 +68,62 @@ export interface AnthropicToolLike {
   input_schema: Record<string, unknown>;
 }
 
+const NULLABLE_STRING = { type: ['string', 'null'] };
+
 export const EVENT_ITEM_SCHEMA: Record<string, unknown> = {
   type: 'object',
   additionalProperties: false,
   properties: {
-    title: { type: 'string', description: 'Event-Titel, knapp und ohne Emojis. Pflicht.' },
-    date: {
-      type: 'string',
-      description:
-        'Datum im Format YYYY-MM-DD. Pflicht. Jahr aus Kontext bzw. dem heutigen Datum ableiten (nächstes zukünftiges Vorkommen).',
-    },
-    start_time: { type: 'string', description: 'Startzeit HH:MM (24h). Leer lassen, wenn nicht genannt.' },
-    end_time: { type: 'string', description: 'Endzeit HH:MM (24h) oder leer.' },
-    location_name: { type: 'string', description: 'Name der Location/des Venues. Pflicht.' },
-    address: { type: 'string', description: 'Straße + Hausnummer, falls genannt, sonst leer.' },
-    city: { type: 'string', description: "Stadt, Standard 'Frankfurt am Main'." },
+    title: { ...NULLABLE_STRING, description: 'Event-Titel, knapp, ohne Emojis. null wenn unklar.' },
+    venue_name: { ...NULLABLE_STRING, description: 'Name der Location/des Venues. null wenn nicht genannt.' },
+    description: { ...NULLABLE_STRING, description: '1–3 Sätze in EIGENEN Worten — NIEMALS die Caption 1:1 kopieren.' },
+    short_description: { ...NULLABLE_STRING, description: 'Sehr kurze Zeile (max ~8 Wörter) für die Karte.' },
     category: {
-      type: 'string',
+      ...NULLABLE_STRING,
       description:
-        'Genau EIN slug aus: day_drinking, clubbing, bars, open_air, student_party, rooftop, live_music, culture. Leer, wenn unklar.',
+        'Genau EIN slug aus: day_drinking, clubbing, bars, open_air, student_party, rooftop, live_music, culture. null wenn unklar.',
     },
-    price: { type: 'string', description: "Preis als Text, z. B. '12', 'ab 10 €', 'free'. Leer, wenn unbekannt." },
-    age_restriction: { type: 'string', description: "z. B. '18' oder '16+'. Leer, wenn keine genannt." },
-    description: {
-      type: 'string',
+    music_genre: { ...NULLABLE_STRING, description: 'Musikrichtung(en), falls genannt.' },
+    start_datetime: {
+      ...NULLABLE_STRING,
       description:
-        'Kurze Zusammenfassung in EIGENEN Worten (1–2 Sätze). NICHT die Original-Caption 1:1 kopieren.',
+        'Startzeitpunkt als ISO 8601 mit Offset, Zeitzone Europe/Berlin, z. B. "2026-06-20T23:00:00+02:00". Relative Angaben (heute/morgen/Fr) gegen das heutige Datum auflösen. null wenn unklar — dann NICHT raten.',
     },
-    music_genre: { type: 'string', description: 'Musikrichtung(en), falls genannt.' },
-    vibe_tags: { type: 'array', items: { type: 'string' }, description: 'Wenige Stimmungs-Tags, kleingeschrieben.' },
-    ticket_url: { type: 'string', description: 'Ticket-Link, falls vorhanden.' },
-    source_url: { type: 'string', description: 'Original-Quelle (Post/Seite), falls bekannt.' },
-    organizer: { type: 'string', description: 'Veranstalter/Promoter, falls genannt. Personennamen sparsam.' },
+    end_datetime: { ...NULLABLE_STRING, description: 'Endzeitpunkt als ISO 8601 oder null.' },
+    timezone: { type: 'string', description: "Immer 'Europe/Berlin'." },
+    address: { ...NULLABLE_STRING, description: 'Straße + Hausnummer, falls genannt.' },
+    city: { type: 'string', description: "Stadt, Standard 'Frankfurt am Main'." },
+    price_text: { ...NULLABLE_STRING, description: "Preis als Text, z. B. '15 €', 'ab 10', 'free'. null wenn unbekannt." },
+    min_age: { ...NULLABLE_STRING, description: "Altersfreigabe, z. B. '18' oder '16+'. null wenn keine genannt." },
+    ticket_url: { ...NULLABLE_STRING, description: 'Ticket-Link (http/https), falls vorhanden.' },
+    source_url: { ...NULLABLE_STRING, description: 'Original-Quelle (Post/Seite), falls bekannt.' },
     confidence_score: {
       type: 'number',
-      description:
-        'Deine Sicherheit von 0.0 bis 1.0, dass dies eine echte, korrekt extrahierte Veranstaltung ist.',
+      description: 'Sicherheit 0.0–1.0, dass dies ein echtes, korrekt extrahiertes Event ist.',
+    },
+    missing_fields: {
+      type: 'array',
+      items: { type: 'string' },
+      description: 'Namen der Felder, die im Input fehlten und geraten/leer sind.',
+    },
+    warnings: {
+      type: 'array',
+      items: { type: 'string' },
+      description: 'Kurze Hinweise für die Review (z. B. „Datum nur als Wochentag genannt").',
     },
   },
-  required: ['title', 'date', 'location_name', 'confidence_score'],
+  required: ['title', 'start_datetime', 'confidence_score', 'missing_fields', 'warnings'],
 };
 
 export const EMIT_EVENTS_TOOL: AnthropicToolLike = {
   name: 'emit_events',
   description:
-    'Gib die im Input gefundenen Veranstaltungen strukturiert zurück. Erfasse jedes eigenständige Event separat (z. B. Wochenprogramm = mehrere). Wenn keine echte zukünftige Veranstaltung erkennbar ist, gib ein leeres events-Array zurück. Erfinde nichts.',
+    'Gib die im Input gefundenen Veranstaltungen strukturiert zurück. Erfasse jedes eigenständige Event separat (Wochenprogramm = mehrere). Wenn keine echte zukünftige Veranstaltung erkennbar ist, gib ein leeres events-Array zurück. Erfinde nichts — fehlende Infos = null.',
   input_schema: {
     type: 'object',
     additionalProperties: false,
     properties: {
-      events: {
-        type: 'array',
-        items: EVENT_ITEM_SCHEMA,
-        description: '0..n extrahierte Events.',
-      },
+      events: { type: 'array', items: EVENT_ITEM_SCHEMA, description: '0..n extrahierte Events.' },
     },
     required: ['events'],
   },
