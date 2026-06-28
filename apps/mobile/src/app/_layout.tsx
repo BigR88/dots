@@ -55,6 +55,7 @@ function AuthGate() {
       <Stack.Screen name="privacy-settings" />
       <Stack.Screen name="add-friends" />
       <Stack.Screen name="friend/[id]" />
+      <Stack.Screen name="plans" />
       <Stack.Screen name="edit-profile" options={{ presentation: 'modal' }} />
     </Stack>
   );

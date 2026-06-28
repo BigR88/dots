@@ -10,6 +10,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useLanguage, type Language } from '@/hooks/use-language';
 import { useLocation } from '@/hooks/use-location';
 import { useLocationEnabled } from '@/hooks/use-location-enabled';
+import { useThemePreference, type ThemePreference } from '@/hooks/use-theme-preference';
 import { useT } from '@/lib/i18n';
 import { useTheme } from '@/theme/theme';
 
@@ -27,6 +28,7 @@ export default function SettingsScreen() {
 
   const [locationEnabled, setLocationEnabled] = useLocationEnabled();
   const [lang, setLang] = useLanguage();
+  const [themePref, setThemePref] = useThemePreference();
   const { request, status } = useLocation();
   const { signOut } = useAuth();
 
@@ -94,6 +96,40 @@ export default function SettingsScreen() {
           </Text>
         )}
 
+        {/* Erscheinungsbild (Hell / Dunkel / System) */}
+        <View style={styles.gap} />
+        <SectionLabel title={tr('section.appearance')} />
+        <View style={[styles.card, { backgroundColor: t.colors.surface, borderColor: t.colors.border }]}>
+          <View style={[styles.segment, { backgroundColor: t.colors.surfaceElevated }]}>
+            {(['system', 'light', 'dark'] as ThemePreference[]).map((mode) => {
+              const active = themePref === mode;
+              const icon =
+                mode === 'system' ? 'phone-portrait-outline' : mode === 'light' ? 'sunny' : 'moon';
+              return (
+                <Pressable
+                  key={mode}
+                  onPress={() => setThemePref(mode)}
+                  style={({ pressed }) => [
+                    styles.segBtn,
+                    styles.themeBtn,
+                    active && { backgroundColor: t.accent },
+                    { opacity: pressed && !active ? 0.6 : 1 },
+                  ]}>
+                  <Ionicons
+                    name={icon}
+                    size={15}
+                    color={active ? '#fff' : t.colors.textPrimary}
+                  />
+                  <Text style={[styles.segText, { color: active ? '#fff' : t.colors.textPrimary }]}>
+                    {tr(mode === 'system' ? 'theme.system' : mode === 'light' ? 'theme.light' : 'theme.dark')}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+        <Text style={[styles.note, { color: t.colors.textMuted }]}>{tr('theme.note')}</Text>
+
         {/* Sprache */}
         <View style={styles.gap} />
         <SectionLabel title={tr('section.language')} />
@@ -141,5 +177,6 @@ const styles = StyleSheet.create({
   gap: { height: 20 },
   segment: { flexDirection: 'row', gap: 4, borderRadius: 12, padding: 4 },
   segBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 10, borderRadius: 9 },
+  themeBtn: { flexDirection: 'row', gap: 6 },
   segText: { fontSize: 14.5, fontWeight: '800' },
 });

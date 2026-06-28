@@ -30,9 +30,9 @@ export function NextPlanCard({ event, onOpen, onDiscover }: Props) {
           <Ionicons name="sparkles" size={20} color={t.accent} />
         </View>
         <View style={styles.body}>
-          <Text style={[styles.title, { color: t.colors.textPrimary }]}>Noch keine Pläne</Text>
+          <Text style={[styles.title, { color: t.colors.textPrimary }]}>Dein Plan</Text>
           <Text style={[styles.sub, { color: t.colors.textSecondary }]}>
-            Entdecke Events und sag zu — sie erscheinen hier.
+            Dein perfekter Event Plan
           </Text>
         </View>
         <Ionicons name="chevron-forward" size={18} color={t.colors.textMuted} />

@@ -15,6 +15,8 @@ export default function TabsLayout() {
       <Tabs.Screen name="index" options={{ title: 'Karte' }} />
       <Tabs.Screen name="discover" options={{ title: 'Entdecken' }} />
       <Tabs.Screen name="friends" options={{ title: 'Freunde' }} />
+      {/* Favoriten: Route bleibt erreichbar (übers Profil), wird aber in der
+          FloatingTabBar ausgeblendet. */}
       <Tabs.Screen name="favorites" options={{ title: 'Favoriten' }} />
       <Tabs.Screen name="profile" options={{ title: 'Profil' }} />
     </Tabs>

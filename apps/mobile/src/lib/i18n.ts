@@ -14,6 +14,7 @@ const DICT: Record<string, Entry> = {
   'section.account': { de: 'Konto', en: 'Account' },
   'section.privacy': { de: 'Privatsphäre', en: 'Privacy' },
   'section.map': { de: 'Karte', en: 'Map' },
+  'section.appearance': { de: 'Erscheinungsbild', en: 'Appearance' },
   'section.language': { de: 'Sprache', en: 'Language' },
 
   'account.editProfile': { de: 'Profil bearbeiten', en: 'Edit profile' },
@@ -52,6 +53,14 @@ const DICT: Record<string, Entry> = {
   'map.location.sub': {
     de: 'Zeigt deine Position als Symbol auf der Karte',
     en: 'Shows your position as a marker on the map',
+  },
+
+  'theme.system': { de: 'System', en: 'System' },
+  'theme.light': { de: 'Hell', en: 'Light' },
+  'theme.dark': { de: 'Dunkel', en: 'Dark' },
+  'theme.note': {
+    de: '„System" folgt der Einstellung deines Geräts.',
+    en: '“System” follows your device setting.',
   },
 
   'lang.hint': { de: 'Sprache der App', en: 'App language' },

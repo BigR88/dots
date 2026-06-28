@@ -8,7 +8,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FIXTURE_FRIENDS } from '@dots/shared';
 import { NextPlanCard } from '@/components/profile/NextPlanCard';
 import { ProfileHeaderCard } from '@/components/profile/ProfileHeaderCard';
-import { SectionLabel } from '@/components/profile/SectionLabel';
 import { listEventsByIds } from '@/data/events';
 import { isSupabaseConfigured } from '@/data/supabase';
 import { useAttendingIds } from '@/hooks/use-attendance';
@@ -111,19 +110,42 @@ export default function ProfileScreen() {
           onShare={onShare}
           stats={[
             { label: 'Favoriten', value: favorites.size, icon: 'heart', onPress: () => router.navigate('/favorites') },
-            { label: 'Zusagen', value: attending.size, icon: 'checkmark-circle' },
+            { label: 'Zusagen', value: attending.size, icon: 'checkmark-circle', onPress: () => router.navigate('/plans') },
             { label: 'Freunde', value: friendsCount, icon: 'people', onPress: () => router.navigate('/friends') },
           ]}
         />
 
-        {/* Aktuelle Pläne */}
+        {/* Dein Plan */}
         <View style={styles.section}>
-          <SectionLabel title="Aktuelle Pläne" />
           <NextPlanCard
             event={nextEvent}
-            onOpen={(id) => router.push(`/event/${id}`)}
-            onDiscover={() => router.navigate('/discover')}
+            onOpen={() => router.navigate('/plans')}
+            onDiscover={() => router.navigate('/plans')}
           />
+        </View>
+
+        {/* Favoriten — eigener Einstieg (nicht mehr in der Tab-Leiste) */}
+        <View style={styles.section}>
+          <Pressable
+            onPress={() => router.navigate('/favorites')}
+            accessibilityLabel="Favoriten öffnen"
+            style={({ pressed }) => [
+              styles.linkCard,
+              { backgroundColor: t.colors.surface, borderColor: t.colors.border, opacity: pressed ? 0.85 : 1, transform: [{ scale: pressed ? 0.99 : 1 }] },
+            ]}>
+            <View style={[styles.linkIcon, { backgroundColor: `${t.accent}1F` }]}>
+              <Ionicons name="heart" size={20} color={t.accent} />
+            </View>
+            <View style={styles.linkBody}>
+              <Text style={[styles.linkTitle, { color: t.colors.textPrimary }]}>Favoriten</Text>
+              <Text style={[styles.linkSub, { color: t.colors.textSecondary }]}>
+                {favorites.size === 0
+                  ? 'Deine gespeicherten Events'
+                  : `${favorites.size} gespeicherte${favorites.size === 1 ? 's' : ''} Event${favorites.size === 1 ? '' : 's'}`}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={t.colors.textMuted} />
+          </Pressable>
         </View>
 
       </ScrollView>
@@ -146,4 +168,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   section: { marginTop: 24 },
+  linkCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 13,
+    borderRadius: 18,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: 14,
+  },
+  linkIcon: { width: 44, height: 44, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+  linkBody: { flex: 1, gap: 2 },
+  linkTitle: { fontSize: 15.5, fontWeight: '800', letterSpacing: -0.2 },
+  linkSub: { fontSize: 13 },
 });
