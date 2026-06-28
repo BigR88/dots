@@ -220,7 +220,10 @@ export default function MapScreen() {
                 : 'Keine Events an diesem Tag.';
 
   return (
-    <View style={[styles.root, { backgroundColor: t.colors.background }]}>
+    // Hintergrund = Map-Farbe (#0b1622) statt heller Theme-Farbe: Falls die
+    // Leaflet-Karte (z. B. beim Start) kurz nicht bis zur unteren Kante reicht,
+    // blendet die Lücke in die Karte ein – nie ein weißer Streifen.
+    <View style={[styles.root, { backgroundColor: t.scheme === 'dark' ? t.colors.background : '#0b1622' }]}>
       {/* Vollbild-Satellitenkarte */}
       <View style={StyleSheet.absoluteFill}>
         <MapProvider

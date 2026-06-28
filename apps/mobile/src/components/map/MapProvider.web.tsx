@@ -93,6 +93,7 @@ export function MapProvider({
   focus,
 }: MapProviderProps) {
   const mapRef = useRef<any>(null);
+  const fixSizeRef = useRef<(() => void) | null>(null);
   const markersRef = useRef<any>(null);
   const userRef = useRef<any>(null);
   const tintRef = useRef<HTMLDivElement | null>(null);
@@ -231,7 +232,18 @@ export function MapProvider({
 
         mapRef.current = map;
         markersRef.current = L.layerGroup().addTo(map);
-        setTimeout(() => map.invalidateSize(), 60);
+        // iOS-Standalone-PWA: 100dvh / Safe-Area-Insets stehen erst NACH dem
+        // ersten Paint final fest. Ein einzelnes invalidateSize(60ms) misst eine
+        // zu kurze Höhe -> Leaflet fixiert seine Panes ~34px über der unteren
+        // Kante und der Screen-Hintergrund scheint als Streifen durch. Daher
+        // über mehrere Frames neu vermessen + bei jeder Viewport-Änderung.
+        const fixSize = () => map.invalidateSize();
+        fixSizeRef.current = fixSize;
+        requestAnimationFrame(fixSize);
+        [60, 200, 500, 1000].forEach((d) => setTimeout(fixSize, d));
+        window.addEventListener('resize', fixSize);
+        window.visualViewport?.addEventListener('resize', fixSize);
+        window.addEventListener('orientationchange', fixSize);
         setReady(true);
         renderHotRef.current();
         renderDistrictsRef.current();
@@ -241,6 +253,12 @@ export function MapProvider({
       });
     return () => {
       cancelled = true;
+      if (fixSizeRef.current) {
+        window.removeEventListener('resize', fixSizeRef.current);
+        window.visualViewport?.removeEventListener('resize', fixSizeRef.current);
+        window.removeEventListener('orientationchange', fixSizeRef.current);
+        fixSizeRef.current = null;
+      }
       tintRef.current?.remove();
       tintRef.current = null;
       mapRef.current?.remove();
