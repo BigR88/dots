@@ -17,6 +17,7 @@ import { FriendsEmpty } from '@/components/friends/FriendsEmpty';
 import { FriendsHeader } from '@/components/friends/FriendsHeader';
 import { SearchBar } from '@/components/friends/SearchBar';
 import { SectionHeader } from '@/components/friends/SectionHeader';
+import { ScreenGradient } from '@/components/ScreenGradient';
 import { listEventsByIds } from '@/data/events';
 import { isSupabaseConfigured } from '@/data/supabase';
 import type { FriendProfile } from '@/data/friends';
@@ -75,8 +76,15 @@ function LiveFriends() {
       params: { friendId: u.id, name: u.name, color: colorFromId(u.id) },
     });
 
+  const openProfile = (u: FriendProfile) =>
+    router.push({
+      pathname: '/friend/[id]',
+      params: { id: u.id, name: u.name, color: colorFromId(u.id) },
+    });
+
   return (
     <View style={[styles.root, { backgroundColor: t.colors.background, paddingTop: insets.top }]}>
+      <ScreenGradient />
       <ScrollView
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 90 }]}
         showsVerticalScrollIndicator={false}
@@ -125,24 +133,21 @@ function LiveFriends() {
               subtitle={`Niemand in deiner Liste heißt „${deferredQuery.trim()}".`}
             />
           ) : (
-            <View style={styles.sectionBody}>
+            <View style={styles.grid}>
               {filtered.map((f) => (
-                <FriendCard
-                  key={f.id}
-                  name={f.name}
-                  avatarColor={colorFromId(f.id)}
-                  events={eventsForFriend(f.id)}
-                  onChat={() => openChat(f)}
-                  onOpenEvent={(id) => router.push(`/event/${id}`)}
-                />
+                <View key={f.id} style={styles.cell}>
+                  <FriendCard
+                    name={f.name}
+                    avatarColor={colorFromId(f.id)}
+                    events={eventsForFriend(f.id)}
+                    onChat={() => openChat(f)}
+                    onOpenProfile={() => openProfile(f)}
+                  />
+                </View>
               ))}
             </View>
           )}
         </View>
-
-        <Text style={[styles.footnote, { color: t.colors.textMuted }]}>
-          Chat ist noch im Demo-Modus — die Zustellung kommt mit dem nächsten Schritt.
-        </Text>
       </ScrollView>
     </View>
   );
@@ -171,13 +176,13 @@ function DemoFriends() {
 
   return (
     <View style={[styles.root, { backgroundColor: t.colors.background, paddingTop: insets.top }]}>
+      <ScreenGradient />
       <ScrollView
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 90 }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled">
         <FriendsHeader
           subtitle="Wer geht wohin?"
-          note="Demo-Freunde · echte Konten & Anfragen sind im verbundenen Modus aktiv"
           onAction={() => router.push('/add-friends')}
           actionLabel="Anfragen & Freunde finden"
         />
@@ -200,16 +205,17 @@ function DemoFriends() {
               subtitle={`Niemand in deiner Liste heißt „${deferredQuery.trim()}".`}
             />
           ) : (
-            <View style={styles.sectionBody}>
+            <View style={styles.grid}>
               {filtered.map((friend) => (
-                <FriendCard
-                  key={friend.id}
-                  name={friend.name}
-                  avatarColor={friend.color}
-                  events={goingFor(friend)}
-                  onChat={() => router.push(`/chat/${friend.id}`)}
-                  onOpenEvent={(id) => router.push(`/event/${id}`)}
-                />
+                <View key={friend.id} style={styles.cell}>
+                  <FriendCard
+                    name={friend.name}
+                    avatarColor={friend.color}
+                    events={goingFor(friend)}
+                    onChat={() => router.push(`/chat/${friend.id}`)}
+                    onOpenProfile={() => router.push({ pathname: '/friend/[id]', params: { id: friend.id } })}
+                  />
+                </View>
               ))}
             </View>
           )}
@@ -223,6 +229,6 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   content: { paddingHorizontal: 16, paddingTop: 4 },
   section: { marginTop: 22 },
-  sectionBody: { gap: 10 },
-  footnote: { fontSize: 12, textAlign: 'center', marginTop: 26, lineHeight: 17 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  cell: { width: '48%' },
 });

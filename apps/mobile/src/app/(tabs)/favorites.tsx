@@ -4,6 +4,7 @@ import { FlatList, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EmptyState } from '@/components/EmptyState';
 import { EventCard } from '@/components/EventCard';
+import { ScreenGradient } from '@/components/ScreenGradient';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { listEventsByIds } from '@/data/events';
 import { useFavoriteIds } from '@/hooks/use-favorites';
@@ -24,6 +25,7 @@ export default function FavoritesScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: t.colors.background, paddingTop: insets.top }]}>
+      <ScreenGradient />
       <ScreenHeader
         title="Favoriten"
         subtitle={

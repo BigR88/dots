@@ -250,11 +250,13 @@ export interface DemoFriend {
   color: string;
   /** Event-IDs, zu denen diese:r Demo-Freund:in zugesagt hat. */
   attending: string[];
+  /** Event-IDs, die diese:r Demo-Freund:in favorisiert hat (fürs Freundes-Profil). */
+  favorites?: string[];
 }
 
 export const FIXTURE_FRIENDS: DemoFriend[] = [
-  { id: 'f01', name: 'Lena', color: '#E84393', attending: ['e06', 'e09', 'e10', 'e18'] },
-  { id: 'f02', name: 'Jonas', color: '#0984E3', attending: ['e02', 'e10', 'e14', 'e17'] },
-  { id: 'f03', name: 'Mara', color: '#00B894', attending: ['e06', 'e11', 'e18'] },
-  { id: 'f04', name: 'Tim', color: '#E17055', attending: ['e09', 'e12', 'e17', 'e18'] },
+  { id: 'f01', name: 'Lena', color: '#E84393', attending: ['e22', 'e24', 'e06', 'e18'], favorites: ['e21', 'e15', 'e09'] },
+  { id: 'f02', name: 'Jonas', color: '#0984E3', attending: ['e21', 'e26', 'e02', 'e14'], favorites: ['e22', 'e10'] },
+  { id: 'f03', name: 'Mara', color: '#00B894', attending: ['e23', 'e24', 'e11', 'e18'], favorites: ['e06', 'e21', 'e25'] },
+  { id: 'f04', name: 'Tim', color: '#E17055', attending: ['e21', 'e25', 'e09', 'e12'], favorites: ['e24', 'e26'] },
 ];

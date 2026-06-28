@@ -20,7 +20,7 @@ export function FloatingMapHeader({ searchOpen, onSearch, onFilter, filterCount 
     <View style={styles.row} pointerEvents="box-none">
       <View style={[styles.brandBox, floatShadow, { backgroundColor: t.colors.surface, borderColor: t.colors.border }]}>
         <Text style={[styles.brand, { color: t.colors.textPrimary }]}>
-          karte<Text style={{ color: t.accent }}>.</Text>
+          Karte<Text style={{ color: t.accent }}>.</Text>
         </Text>
       </View>
 

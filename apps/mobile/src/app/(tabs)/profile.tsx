@@ -6,15 +6,13 @@ import { useMemo } from 'react';
 import { Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FIXTURE_FRIENDS } from '@dots/shared';
-import { AccountActionCard } from '@/components/profile/AccountActionCard';
 import { NextPlanCard } from '@/components/profile/NextPlanCard';
 import { ProfileHeaderCard } from '@/components/profile/ProfileHeaderCard';
-import { SectionLabel } from '@/components/profile/SectionLabel';
-import { VibeChips } from '@/components/profile/VibeChips';
 import { listEventsByIds } from '@/data/events';
 import { isSupabaseConfigured } from '@/data/supabase';
 import { useAttendingIds } from '@/hooks/use-attendance';
 import { useAuth } from '@/hooks/use-auth';
+import { pickAvatar, useAvatar } from '@/hooks/use-avatar';
 import { useFavoriteIds } from '@/hooks/use-favorites';
 import { useFriendOverview } from '@/hooks/use-friends';
 import { useMyProfile } from '@/hooks/use-profile';
@@ -25,17 +23,19 @@ export default function ProfileScreen() {
   const t = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { displayName, email, signOut } = useAuth();
+  const { displayName, email } = useAuth();
 
   const profile = useMyProfile();
+  const avatar = useAvatar();
   const favorites = useFavoriteIds();
   const attending = useAttendingIds();
   const overview = useFriendOverview();
 
-  const name = profile.data?.displayName ?? displayName ?? 'Gast';
-  const username = profile.data?.username ?? suggestUsername(displayName, email);
+  const name = profile.data?.displayName ?? displayName ?? 'Benas Gibson';
+  const username =
+    profile.data?.username ??
+    (displayName || email ? suggestUsername(displayName, email) : 'dots.developer');
   const bio = profile.data?.bio ?? null;
-  const interests = profile.data?.interests ?? [];
   const seed = profile.data?.id ?? name;
 
   const friendsCount = isSupabaseConfigured
@@ -86,7 +86,6 @@ export default function ProfileScreen() {
             <Text style={[styles.title, { color: t.colors.textPrimary }]}>
               Profil<Text style={{ color: t.accent }}>.</Text>
             </Text>
-            <Text style={[styles.subtitle, { color: t.colors.textSecondary }]}>Dein dots.-Konto</Text>
           </View>
           <Pressable
             onPress={() => router.push('/settings')}
@@ -106,56 +105,49 @@ export default function ProfileScreen() {
           email={email}
           bio={bio}
           seed={seed}
-          onEdit={() => router.push('/edit-profile')}
+          imageUri={avatar}
+          onAvatarPress={() => void pickAvatar()}
           onShare={onShare}
           stats={[
             { label: 'Favoriten', value: favorites.size, icon: 'heart', onPress: () => router.navigate('/favorites') },
-            { label: 'Zusagen', value: attending.size, icon: 'checkmark-circle' },
+            { label: 'Zusagen', value: attending.size, icon: 'checkmark-circle', onPress: () => router.navigate('/plans') },
             { label: 'Freunde', value: friendsCount, icon: 'people', onPress: () => router.navigate('/friends') },
           ]}
         />
 
-        {/* Dein Vibe */}
+        {/* Dein Plan */}
         <View style={styles.section}>
-          <SectionLabel title="Dein Vibe" hint="Deine Lieblingskategorien." />
-          {interests.length > 0 ? (
-            <VibeChips selected={interests} />
-          ) : (
-            <Pressable
-              onPress={() => router.push('/edit-profile')}
-              style={({ pressed }) => [
-                styles.vibePrompt,
-                { backgroundColor: t.colors.surface, borderColor: t.colors.border, opacity: pressed ? 0.8 : 1 },
-              ]}>
-              <Ionicons name="sparkles-outline" size={18} color={t.accent} />
-              <Text style={[styles.vibePromptText, { color: t.colors.textSecondary }]}>
-                Wähle deine Lieblingskategorien
-              </Text>
-              <Ionicons name="chevron-forward" size={16} color={t.colors.textMuted} />
-            </Pressable>
-          )}
-        </View>
-
-        {/* Aktuelle Pläne */}
-        <View style={styles.section}>
-          <SectionLabel title="Aktuelle Pläne" hint="Dein nächstes Event." />
           <NextPlanCard
             event={nextEvent}
-            onOpen={(id) => router.push(`/event/${id}`)}
-            onDiscover={() => router.navigate('/discover')}
+            onOpen={() => router.navigate('/plans')}
+            onDiscover={() => router.navigate('/plans')}
           />
         </View>
 
-        {/* Account */}
+        {/* Favoriten — eigener Einstieg (nicht mehr in der Tab-Leiste) */}
         <View style={styles.section}>
-          <SectionLabel title="Account" />
-          <AccountActionCard
-            actions={[
-              { icon: 'create-outline', label: 'Profil bearbeiten', onPress: () => router.push('/edit-profile') },
-              { icon: 'log-out-outline', label: 'Abmelden', onPress: signOut, danger: true },
-            ]}
-          />
+          <Pressable
+            onPress={() => router.navigate('/favorites')}
+            accessibilityLabel="Favoriten öffnen"
+            style={({ pressed }) => [
+              styles.linkCard,
+              { backgroundColor: t.colors.surface, borderColor: t.colors.border, opacity: pressed ? 0.85 : 1, transform: [{ scale: pressed ? 0.99 : 1 }] },
+            ]}>
+            <View style={[styles.linkIcon, { backgroundColor: `${t.accent}1F` }]}>
+              <Ionicons name="heart" size={20} color={t.accent} />
+            </View>
+            <View style={styles.linkBody}>
+              <Text style={[styles.linkTitle, { color: t.colors.textPrimary }]}>Favoriten</Text>
+              <Text style={[styles.linkSub, { color: t.colors.textSecondary }]}>
+                {favorites.size === 0
+                  ? 'Deine gespeicherten Events'
+                  : `${favorites.size} gespeicherte${favorites.size === 1 ? 's' : ''} Event${favorites.size === 1 ? '' : 's'}`}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={t.colors.textMuted} />
+          </Pressable>
         </View>
+
       </ScrollView>
     </View>
   );
@@ -167,7 +159,6 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: 16 },
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 },
   title: { fontSize: 28, fontWeight: '900', letterSpacing: -0.8 },
-  subtitle: { fontSize: 13.5, marginTop: 1 },
   gear: {
     width: 44,
     height: 44,
@@ -177,14 +168,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   section: { marginTop: 24 },
-  vibePrompt: {
+  linkCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    borderRadius: 16,
+    gap: 13,
+    borderRadius: 18,
     borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
+    padding: 14,
   },
-  vibePromptText: { flex: 1, fontSize: 14, fontWeight: '600' },
+  linkIcon: { width: 44, height: 44, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+  linkBody: { flex: 1, gap: 2 },
+  linkTitle: { fontSize: 15.5, fontWeight: '800', letterSpacing: -0.2 },
+  linkSub: { fontSize: 13 },
 });

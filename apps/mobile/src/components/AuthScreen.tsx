@@ -75,7 +75,7 @@ export function AuthScreen() {
         {/* Mitte: Marke + Formular */}
         <View style={styles.center}>
           <Text style={[styles.brand, { color: t.colors.textPrimary }]}>
-            dots<Text style={{ color: t.accent }}>.</Text>
+            Dots<Text style={{ color: t.accent }}>.</Text>
           </Text>
           <Text style={[styles.tagline, { color: t.colors.textMuted }]}>
             Was geht in Frankfurt

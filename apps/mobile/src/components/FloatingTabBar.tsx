@@ -29,6 +29,10 @@ interface TabBarProps {
   };
 }
 
+// In der Leiste ausgeblendete Routen (bleiben per Direktnavigation erreichbar,
+// z. B. „Favoriten" übers Profil).
+const HIDDEN = new Set(['favorites']);
+
 // route.name → [aktiv, inaktiv] Ionicons
 const ICONS: Record<string, [string, string]> = {
   index: ['map', 'map-outline'],
@@ -61,8 +65,8 @@ export function FloatingTabBar({ state, descriptors, navigation }: TabBarProps) 
               borderColor: t.colors.border,
             },
           ]}>
-          {state.routes.map((route, index) => {
-            const focused = state.index === index;
+          {state.routes.filter((route) => !HIDDEN.has(route.name)).map((route) => {
+            const focused = state.routes[state.index]?.key === route.key;
             const { options } = descriptors[route.key];
             const label = (options.title ?? route.name) as string;
             const [activeIcon, inactiveIcon] = ICONS[route.name] ?? ['ellipse', 'ellipse-outline'];

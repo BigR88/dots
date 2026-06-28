@@ -25,9 +25,14 @@ export function isoDay(d: Date): string {
   return `${x.getFullYear()}-${m}-${day}`;
 }
 
-function parseIsoDay(iso: string): Date {
+export function parseIsoDay(iso: string): Date {
   const [y, m, d] = iso.split('-').map(Number);
   return new Date(y, (m ?? 1) - 1, d ?? 1);
+}
+
+/** True, wenn der String ein konkreter ISO-Tag `YYYY-MM-DD` ist (nicht 'next7'/'trending'). */
+export function isIsoDay(value: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value);
 }
 
 /** Anzahl Tage im „Nächste 7 Tage"-Bereich (heute + 6 Folgetage). */
@@ -92,13 +97,33 @@ export function dayOptions(now: Date = new Date(), count = NEXT_DAYS_COUNT): Day
   });
 }
 
-/** Kurzlabel für die Datumsleiste: „Heute" / „Morgen" / „Do 18.06". */
+/** `DayOption` für einen beliebigen ISO-Tag (auch außerhalb der 7-Tage-Liste). */
+export function dayOptionFromIso(iso: string, now: Date = new Date()): DayOption {
+  const date = startOfDay(parseIsoDay(iso));
+  const todayIso = isoDay(now);
+  const tomorrowIso = isoDay(addDays(startOfDay(now), 1));
+  return {
+    value: iso,
+    date,
+    isToday: iso === todayIso,
+    isTomorrow: iso === tomorrowIso,
+    weekdayShort: wdShortFmt.format(date).replace('.', ''),
+    weekdayLong: wdLongFmt.format(date),
+    dayNum: date.getDate(),
+    monthLong: monthLongFmt.format(date),
+  };
+}
+
+/** Kurzlabel für die Datumsleiste: „Heute 27.06" / „Morgen 28.06" / „29.06". */
 export function shortDayLabel(opt: DayOption): string {
-  if (opt.isToday) return 'Heute';
-  if (opt.isTomorrow) return 'Morgen';
   const dd = String(opt.dayNum).padStart(2, '0');
   const mm = String(opt.date.getMonth() + 1).padStart(2, '0');
-  return `${opt.weekdayShort} ${dd}.${mm}`;
+  const date = `${dd}.${mm}`;
+  // Etwas größerer Abstand zwischen Wort und Datum (Em-Space statt normalem Space).
+  const gap = ' ';
+  if (opt.isToday) return `Heute${gap}${date}`;
+  if (opt.isTomorrow) return `Morgen${gap}${date}`;
+  return date;
 }
 
 /** Lange Zeile fürs Kalender-Sheet: „Heute, Dienstag 16. Juni". */
@@ -107,4 +132,42 @@ export function longDayLabel(opt: DayOption): string {
   if (opt.isToday) return `Heute, ${base}`;
   if (opt.isTomorrow) return `Morgen, ${base}`;
   return base;
+}
+
+// ── Monatskalender (Datums-Auswahl) ─────────────────────────────────────────
+
+/** Wochentags-Kürzel, Woche beginnt montags. */
+export const WEEKDAY_LABELS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'] as const;
+
+export interface MonthCell {
+  /** ISO-Tag `YYYY-MM-DD`, dient als `TimeValue`. */
+  iso: string;
+  date: Date;
+  dayNum: number;
+  /** Gehört die Zelle zum angezeigten Monat (vs. Rand-Tage aus Nachbarmonaten)? */
+  inMonth: boolean;
+}
+
+const monthYearFmt = new Intl.DateTimeFormat('de-DE', { month: 'long', year: 'numeric' });
+
+/** Überschrift fürs Kalenderblatt, z. B. „Juni 2026". */
+export function monthTitle(year: number, month: number): string {
+  return monthYearFmt.format(new Date(year, month, 1));
+}
+
+/**
+ * Tages-Raster eines Monats (Wochen beginnen montags). Enthält führende/folgende
+ * Rand-Tage der Nachbarmonate (`inMonth: false`), damit die Wochen voll sind.
+ * `Date` löst Monats-/Jahreswechsel automatisch korrekt auf.
+ */
+export function monthGrid(year: number, month: number): MonthCell[] {
+  const first = new Date(year, month, 1);
+  // JS: 0=So … 6=Sa → in Mo=0 … So=6 umrechnen.
+  const lead = (first.getDay() + 6) % 7;
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const cells = Math.ceil((lead + daysInMonth) / 7) * 7;
+  return Array.from({ length: cells }, (_, i) => {
+    const date = new Date(year, month, 1 - lead + i);
+    return { iso: isoDay(date), date, dayNum: date.getDate(), inMonth: date.getMonth() === month };
+  });
 }
