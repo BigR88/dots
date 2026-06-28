@@ -16,7 +16,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AvatarPicker } from '@/components/profile/AvatarPicker';
 import { SectionLabel } from '@/components/profile/SectionLabel';
 import { UsernameField, type UsernameStatus } from '@/components/profile/UsernameField';
-import { VibeChips } from '@/components/profile/VibeChips';
 import { checkUsernameAvailable } from '@/data/profile';
 import { useAuth } from '@/hooks/use-auth';
 import { useMyProfile, useUpdateProfile } from '@/hooks/use-profile';
@@ -124,9 +123,6 @@ export default function EditProfileScreen() {
     }
   };
 
-  const toggleInterest = (slug: string) =>
-    setInterests((cur) => (cur.includes(slug) ? cur.filter((s) => s !== slug) : [...cur, slug]));
-
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -177,15 +173,11 @@ export default function EditProfileScreen() {
         <TextInput
           value={bio}
           onChangeText={(v) => setBio(v.slice(0, BIO_MAX))}
-          placeholder="Worauf hast du Lust?"
+          placeholder="Worauf hast du Lust? Was ist dein Vibe?"
           placeholderTextColor={t.colors.textMuted}
           multiline
           style={[styles.input, styles.bio, { backgroundColor: t.colors.surface, borderColor: t.colors.border, color: t.colors.textPrimary }]}
         />
-
-        <View style={styles.gap} />
-        <SectionLabel title="Dein Vibe" hint="Wähle deine Lieblingskategorien." />
-        <VibeChips selected={interests} onToggle={toggleInterest} />
 
         <View style={styles.gap} />
         <SectionLabel title="Bereich" hint="Wo bist du am liebsten unterwegs?" />

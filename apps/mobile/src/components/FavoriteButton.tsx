@@ -1,6 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet } from 'react-native';
-import { palette } from '@dots/shared';
 import { toggleFavorite, useIsFavorite } from '@/hooks/use-favorites';
 import { useTheme } from '@/theme/theme';
 
@@ -20,7 +19,7 @@ export function FavoriteButton({ eventId, size = 20, variant = 'float' }: Props)
     <Ionicons
       name={isFav ? 'heart' : 'heart-outline'}
       size={size}
-      color={isFav ? palette.danger : variant === 'plain' ? t.colors.textMuted : t.colors.textPrimary}
+      color={isFav ? t.accent : variant === 'plain' ? t.colors.textMuted : t.colors.textPrimary}
     />
   );
 

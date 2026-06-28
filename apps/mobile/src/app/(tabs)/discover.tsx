@@ -13,6 +13,7 @@ import { EventCard } from '@/components/EventCard';
 import { FilterPanel } from '@/components/FilterPanel';
 import { GlassButton } from '@/components/GlassButton';
 import { ScreenBackground } from '@/components/ScreenBackground';
+import { ScreenGradient } from '@/components/ScreenGradient';
 import { SkeletonCard } from '@/components/SkeletonCard';
 import { listEvents, type EventQuery } from '@/data/events';
 import { useLocation } from '@/hooks/use-location';
@@ -80,6 +81,7 @@ export default function DiscoverScreen() {
 
   return (
     <ScreenBackground>
+      <ScreenGradient />
       <View style={{ flex: 1, paddingTop: insets.top }}>
         <View onLayout={(e) => setHeaderH(e.nativeEvent.layout.height)}>
           {/* Header: Wortmarke + Claim + runder Glas-Button */}
