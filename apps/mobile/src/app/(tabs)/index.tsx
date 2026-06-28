@@ -1,26 +1,36 @@
 import { useQuery } from '@tanstack/react-query';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useDeferredValue, useEffect, useMemo, useState } from 'react';
-import { LayoutAnimation, Platform, Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import { Platform, StyleSheet, View, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { GeoPoint, QuickFilterId, TimeValue } from '@dots/shared';
+import { NEXT_7_DAYS, type GeoPoint, type QuickFilterId, type TimeValue } from '@dots/shared';
 import { DateBar } from '@/components/DateBar';
 import { DateOverlay } from '@/components/DateOverlay';
-import { EventPreviewSheet } from '@/components/EventPreviewSheet';
-import { FilterPanel } from '@/components/FilterPanel';
+import { EventBottomSheet } from '@/components/EventBottomSheet';
 import { FloatingMapActions } from '@/components/FloatingMapActions';
 import { FloatingMapHeader } from '@/components/FloatingMapHeader';
+import { MapEmptyState } from '@/components/MapEmptyState';
+import { MapFilterSheet } from '@/components/MapFilterSheet';
+import { MapSearchOverlay } from '@/components/MapSearchOverlay';
+import { MapToast } from '@/components/MapToast';
+import { TimeFilterChips } from '@/components/TimeFilterChips';
 import { MapProvider } from '@/components/map/MapProvider';
-import { VenueSheet } from '@/components/VenueSheet';
 import { listEvents, type EventQuery } from '@/data/events';
+import {
+  applyBaseFilters,
+  filterEventsByTimeStatus,
+  getActiveFilterCount,
+  timeStatusCounts,
+  type TimeStatusFilter,
+} from '@/lib/map-filters';
+import { calculateHotAreas } from '@/lib/hot-areas';
 import { isoDay } from '@/lib/time';
 import { groupEventsByVenue, toVenueMarkers } from '@/lib/venues';
 import { useLocation } from '@/hooks/use-location';
 import { useLocationEnabled } from '@/hooks/use-location-enabled';
 import { useTheme } from '@/theme/theme';
 
-type Section = 'category' | 'quick' | 'sort';
 type Focus = { point: GeoPoint; nonce: number; zoom?: number } | null;
 
 // Verlaufsfarbe für die Rand-Scrims (hell bzw. dunkel passend zum Schema).
@@ -32,25 +42,68 @@ export default function MapScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { location, status, request } = useLocation();
-  const [locationEnabled] = useLocationEnabled();
+  const [locationEnabled, setLocationEnabled] = useLocationEnabled();
 
   const [time, setTime] = useState<TimeValue>(isoDay(new Date()));
-  const [categorySlug, setCategorySlug] = useState<string | null>(null);
-  const [quickFilters, setQuickFilters] = useState<QuickFilterId[]>([]);
+  // Map-Filter (eigener State, getrennt von „Entdecken"): Kategorien mehrfach.
+  const [categorySlugs, setCategorySlugs] = useState<string[]>([]);
+  const [quick, setQuick] = useState<QuickFilterId[]>([]);
+  const [timeStatus, setTimeStatus] = useState<TimeStatusFilter | null>(null);
   const [search, setSearch] = useState('');
   const deferredSearch = useDeferredValue(search);
+
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [focus, setFocus] = useState<Focus>(null);
-
-  const [open, setOpen] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
-  const [section, setSection] = useState<Section | null>('category');
   const [topH, setTopH] = useState(0);
 
+  // „Jetzt" für den Live-Status, im Minutentakt aktualisiert.
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Bei Tageswechsel (App über Mitternacht offen) „heute" mitführen.
+  const prevDayRef = useRef(isoDay(now));
+  useEffect(() => {
+    const today = isoDay(now);
+    if (today !== prevDayRef.current) {
+      setTime((cur) => (cur === prevDayRef.current ? today : cur));
+      prevDayRef.current = today;
+    }
+  }, [now]);
+
+  // Dezenter, selbst-ausblendender Hinweis (z. B. Standort-Fehler).
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showToast = useCallback((msg: string) => {
+    setToast(msg);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), 3400);
+  }, []);
+  useEffect(() => () => void (toastTimer.current && clearTimeout(toastTimer.current)), []);
+
+  // Live-Status der Marker/Sheets: heute ODER Wochenansicht (per-Event korrekt).
+  const liveContext = time === isoDay(now) || time === NEXT_7_DAYS;
+  // Zeit-CHIPS & Zeitstatus-FILTER nur im echten Heute-Kontext — sonst würde der
+  // Filter die 7-Tage-Ansicht still auf heute kollabieren (künftige Events haben
+  // keinen Live-Status).
+  const todayContext = time === isoDay(now);
+
+  // Zeit-Filter verwerfen, sobald wir „heute" verlassen (kein Phantom-Filter).
+  useEffect(() => {
+    if (!todayContext && timeStatus !== null) setTimeStatus(null);
+  }, [todayContext, timeStatus]);
+
+  // Query holt NUR Datum + Suche; Kategorie/Schnellfilter/Zeit/Nähe laufen
+  // zentral client-seitig (lib/map-filters) → keine doppelte Filterlogik.
   const query: EventQuery = {
     time,
-    categorySlug,
-    quickFilters,
+    categorySlug: null,
+    quickFilters: [],
     sort: 'date',
     origin: location,
     search: deferredSearch,
@@ -61,48 +114,77 @@ export default function MapScreen() {
   });
   const events = useMemo(() => data ?? [], [data]);
 
-  // Mehrere Events am selben Standort → eine Gruppe → ein Pin (mit Zahl).
-  const groups = useMemo(() => groupEventsByVenue(events), [events]);
-  const markers = useMemo(() => toVenueMarkers(groups), [groups]);
-  const selectedGroup = useMemo(
-    () => groups.find((g) => g.key === selectedKey) ?? null,
-    [groups, selectedKey],
+  // Basis (ohne Zeitstatus) für die Zeit-Chip-Counts; dann finaler Zeitfilter.
+  const baseEvents = useMemo(
+    () => applyBaseFilters(events, { categorySlugs, quick, timeStatus: null }, { now, liveContext, origin: location }),
+    [events, categorySlugs, quick, location, now, liveContext],
+  );
+  // Zeit-Filter nur in „heute" wirksam; sonst null (kein Kollaps der 7-Tage-Ansicht).
+  const effectiveTimeStatus = todayContext ? timeStatus : null;
+  const counts = useMemo(() => timeStatusCounts(baseEvents, now, todayContext), [baseEvents, now, todayContext]);
+  const filteredEvents = useMemo(
+    () => filterEventsByTimeStatus(baseEvents, effectiveTimeStatus, now, todayContext),
+    [baseEvents, effectiveTimeStatus, now, todayContext],
+  );
+
+  const groups = useMemo(() => groupEventsByVenue(filteredEvents), [filteredEvents]);
+  const markers = useMemo(() => toVenueMarkers(groups, { now, liveContext }), [groups, now, liveContext]);
+  const hotAreas = useMemo(() => calculateHotAreas(filteredEvents), [filteredEvents]);
+  const selectedGroup = useMemo(() => groups.find((g) => g.key === selectedKey) ?? null, [groups, selectedKey]);
+
+  const activeFilterCount = getActiveFilterCount({ categorySlugs, quick }, !!location);
+  const anyFilter = activeFilterCount > 0 || effectiveTimeStatus != null || deferredSearch.length > 0;
+
+  // Auswahl verwerfen, wenn die gewählte Gruppe aus dem Ergebnis fällt.
+  useEffect(() => {
+    if (selectedKey && !groups.some((g) => g.key === selectedKey)) setSelectedKey(null);
+  }, [groups, selectedKey]);
+
+  // Beim Verlassen des Karten-Tabs offene Overlays schließen.
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        setSelectedKey(null);
+        setFilterOpen(false);
+        setSearchOpen(false);
+      };
+    }, []),
   );
 
   const toggleCategory = (slug: string) =>
-    setCategorySlug((cur) => (cur === slug ? null : slug));
+    setCategorySlugs((cur) => (cur.includes(slug) ? cur.filter((s) => s !== slug) : [...cur, slug]));
 
   const locate = async () => {
     const point = (await request()) ?? location;
-    if (point) setFocus((f) => ({ point, nonce: (f?.nonce ?? 0) + 1 }));
+    if (point) {
+      if (!locationEnabled) setLocationEnabled(true);
+      setFocus((f) => ({ point, nonce: (f?.nonce ?? 0) + 1, zoom: 15 }));
+    } else {
+      // „Nähe" kann ohne Standort nicht filtern → wieder abwählen, damit Badge
+      // und Filter konsistent bleiben.
+      setQuick((cur) => cur.filter((q) => q !== 'near_me'));
+      showToast('Standort nicht verfügbar — bitte in den Geräte-Einstellungen erlauben.');
+    }
   };
 
-  // Ist die Standort-Funktion (in den Einstellungen) aktiv, Standort holen,
-  // damit das Symbol auf der Karte erscheint.
+  // Standort-Funktion in den Einstellungen aktiv → Standort holen.
   useEffect(() => {
     if (locationEnabled && !location && status === 'idle') void request();
   }, [locationEnabled, location, status, request]);
 
-  // Symbol nur zeigen, wenn die Standort-Funktion aktiv ist.
-  const shownLocation = locationEnabled ? location : null;
+  const shownLocation = location;
 
   const toggleQuick = (id: QuickFilterId) => {
-    setQuickFilters((cur) => (cur.includes(id) ? cur.filter((q) => q !== id) : [...cur, id]));
-    if (id === 'near_me' && !quickFilters.includes('near_me') && !location) void locate();
+    setQuick((cur) => (cur.includes(id) ? cur.filter((q) => q !== id) : [...cur, id]));
+    // „Nähe" braucht einen Standort → bei Aktivierung Opt-in anstoßen.
+    if (id === 'near_me' && !quick.includes('near_me') && !location) void locate();
   };
 
   const resetFilters = () => {
-    setCategorySlug(null);
-    setQuickFilters([]);
+    setCategorySlugs([]);
+    setQuick([]);
+    setTimeStatus(null);
     setSearch('');
-  };
-
-  const activeCount = (categorySlug ? 1 : 0) + quickFilters.length + (deferredSearch ? 1 : 0);
-  const hasActive = activeCount > 0;
-
-  const toggleOpen = () => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setOpen((o) => !o);
   };
 
   const openEvent = (id: string) => {
@@ -110,12 +192,40 @@ export default function MapScreen() {
     router.push(`/event/${id}`);
   };
 
+  const onSearchToggle = () => {
+    setSearchOpen((o) => !o);
+    setFilterOpen(false);
+  };
+  const onFilterOpen = () => {
+    setFilterOpen(true);
+    setSearchOpen(false);
+  };
+
+  const sheetOpen = !!selectedGroup || filterOpen || searchOpen;
+  const showTimeChips = todayContext && !sheetOpen;
+
+  const emptyMessage =
+    filteredEvents.length > 0
+      ? null
+      : effectiveTimeStatus === 'live'
+        ? 'Gerade läuft hier nichts.'
+        : effectiveTimeStatus === 'soon'
+          ? 'Nichts, das bald startet.'
+          : effectiveTimeStatus === 'later'
+            ? 'Keine späteren Events heute.'
+            : quick.includes('near_me') && location
+              ? 'Keine Events in deiner Nähe.'
+              : anyFilter
+                ? 'Keine Events für diesen Filter.'
+                : 'Keine Events an diesem Tag.';
+
   return (
     <View style={[styles.root, { backgroundColor: t.colors.background }]}>
       {/* Vollbild-Satellitenkarte */}
       <View style={StyleSheet.absoluteFill}>
         <MapProvider
           markers={markers}
+          hotAreas={hotAreas}
           userLocation={shownLocation}
           selectedKey={selectedKey}
           onSelectMarker={setSelectedKey}
@@ -123,7 +233,7 @@ export default function MapScreen() {
         />
       </View>
 
-      {/* Weiche Verläufe oben/unten — lassen die Overlays sanft in die Karte übergehen */}
+      {/* Weiche Verläufe oben/unten */}
       <LinearGradient
         pointerEvents="none"
         colors={[scrim(t.scheme, 0.7), scrim(t.scheme, 0)]}
@@ -135,71 +245,71 @@ export default function MapScreen() {
         style={[styles.bottomScrim, { height: insets.bottom + 140 }]}
       />
 
-      {/* Schwebende Top-Steuerung (Overlay über der Karte) */}
+      {/* Empty State — freundlich, mittig auf der Karte; nicht über offenen Sheets */}
+      {emptyMessage && !sheetOpen && (
+        <MapEmptyState message={emptyMessage} onReset={anyFilter ? resetFilters : undefined} />
+      )}
+
+      {/* Schwebende Top-Steuerung */}
       <View
         style={[styles.topOverlay, { paddingTop: insets.top + 6 }]}
         onLayout={(e) => setTopH(e.nativeEvent.layout.height)}
         pointerEvents="box-none">
-        {/* Such-Button schwebt frei oben rechts — hält die Box ruhig */}
-        <FloatingMapHeader searchOpen={open} hasActiveFilters={hasActive} onSearch={toggleOpen} />
-        {/* Box: nur die Datumsleiste — Kategorie läuft über Suche/Filter */}
+        <FloatingMapHeader
+          searchOpen={searchOpen}
+          onSearch={onSearchToggle}
+          onFilter={onFilterOpen}
+          filterCount={activeFilterCount}
+        />
         <View style={[styles.panel, { backgroundColor: t.colors.surface, borderColor: t.colors.border }]}>
           <DateBar value={time} onChange={setTime} onOpenCalendar={() => setCalendarOpen(true)} />
         </View>
+
+        {/* Zeit-Chips: nur „Heute", ausgeblendet wenn ein Sheet offen ist */}
+        {showTimeChips && (
+          <TimeFilterChips value={timeStatus} counts={counts} onChange={setTimeStatus} />
+        )}
       </View>
 
-      {/* Schwebende Karten-Aktion: nur „mein Standort" (verstecken, wenn Sheet/Panel offen) */}
-      {!selectedGroup && !open && (
-        <FloatingMapActions
-          locationEnabled={locationEnabled}
-          located={!!location}
-          onLocate={locate}
-          bottom={insets.bottom + 92}
+      {/* Dezenter Hinweis unter der Datumsleiste (über allen Sheets) */}
+      <MapToast message={toast} top={insets.top + 168} />
+
+      {/* „In meiner Nähe" — verstecken, wenn ein Sheet offen ist */}
+      {!sheetOpen && <FloatingMapActions located={!!location} onLocate={locate} bottom={insets.bottom + 92} />}
+
+      {/* Auswahl → Event-Bottom-Sheet */}
+      {selectedGroup && (
+        <EventBottomSheet
+          key={selectedGroup.key}
+          group={selectedGroup}
+          userLocation={shownLocation}
+          now={now}
+          liveContext={liveContext}
+          onOpenEvent={openEvent}
+          onClose={() => setSelectedKey(null)}
         />
       )}
 
-      {/* Auswahl: ein Event → Vorschau-Card, mehrere am Standort → Venue-Sheet */}
-      {selectedGroup &&
-        (selectedGroup.events.length === 1 ? (
-          <EventPreviewSheet
-            event={selectedGroup.events[0]}
-            userLocation={shownLocation}
-            onOpen={() => openEvent(selectedGroup.events[0].id)}
-            onClose={() => setSelectedKey(null)}
-          />
-        ) : (
-          <VenueSheet group={selectedGroup} onOpenEvent={openEvent} onClose={() => setSelectedKey(null)} />
-        ))}
-
-      {/* Aufziehbares Glas-Filterpanel (identisch zu „Entdecken") */}
-      {open && (
-        <>
-          <Pressable style={[styles.backdrop, { top: topH }]} onPress={toggleOpen} accessibilityLabel="Filter schließen" />
-          <View style={[styles.panelWrap, { top: topH }]} pointerEvents="box-none">
-            <FilterPanel
-              search={search}
-              onSearch={setSearch}
-              categorySlug={categorySlug}
-              onToggleCategory={toggleCategory}
-              quickFilters={quickFilters}
-              onToggleQuick={toggleQuick}
-              showSort={false}
-              openSection={section}
-              onOpenSection={setSection}
-              onReset={resetFilters}
-              hasActive={hasActive}
-            />
-          </View>
-        </>
+      {/* Such-Overlay (getrennt von Filtern) */}
+      {searchOpen && (
+        <MapSearchOverlay value={search} onChange={setSearch} top={topH} onClose={() => setSearchOpen(false)} />
       )}
 
-      {/* Kalender-Overlay im Frame (schwebt über der Karte, Karte bleibt sichtbar) */}
-      <DateOverlay
-        visible={calendarOpen}
-        value={time}
-        onSelect={setTime}
-        onClose={() => setCalendarOpen(false)}
-      />
+      {/* Filter-Bottom-Sheet */}
+      {filterOpen && (
+        <MapFilterSheet
+          categorySlugs={categorySlugs}
+          onToggleCategory={toggleCategory}
+          quick={quick}
+          onToggleQuick={toggleQuick}
+          activeCount={activeFilterCount}
+          onReset={resetFilters}
+          onClose={() => setFilterOpen(false)}
+        />
+      )}
+
+      {/* Kalender-Overlay */}
+      <DateOverlay visible={calendarOpen} value={time} onSelect={setTime} onClose={() => setCalendarOpen(false)} />
     </View>
   );
 }
@@ -218,7 +328,6 @@ const styles = StyleSheet.create({
     zIndex: 20,
   },
   panel: {
-    // Datums-Box über die volle Breite
     borderRadius: 22,
     borderWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: 14,
@@ -235,6 +344,4 @@ const styles = StyleSheet.create({
       },
     }) as ViewStyle),
   },
-  backdrop: { position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(17,24,39,0.18)', zIndex: 25 },
-  panelWrap: { position: 'absolute', left: 12, right: 12, zIndex: 30 },
 });

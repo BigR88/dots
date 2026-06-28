@@ -25,24 +25,30 @@ export function DeviceFrame({ children }: PropsWithChildren) {
     return <>{children}</>;
   }
 
-  // Auf echten Handys / als installierte PWA (schmaler Viewport oder Standalone)
-  // KEIN Mockup-Rahmen — die App läuft im Vollbild mit echten Safe-Area-Insets.
-  // Der iPhone-Rahmen bleibt nur in der breiten Desktop-Vorschau.
+  // Echte Touch-Geräte (Handy/Tablet) oder installierte PWA: KEIN Mockup-Rahmen
+  // — die App läuft im Vollbild mit echten Safe-Area-Insets. Der iPhone-Rahmen
+  // erscheint nur in der Desktop-/Editor-Vorschau (Maus = „fine pointer") und
+  // skaliert dort auf jede Panel-Breite herunter. Wichtig: NICHT über die
+  // Fensterbreite erkennen — eine schmale Vorschau-Spalte ist kein Telefon.
   const standalone =
     typeof window !== 'undefined' &&
     (window.matchMedia?.('(display-mode: standalone)')?.matches ||
       (window.navigator as unknown as { standalone?: boolean }).standalone === true);
-  if (standalone || winW < 700) {
+  const isTouchDevice =
+    typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)')?.matches === true;
+  if (standalone || isTouchDevice) {
     return <>{children}</>;
   }
 
   const totalW = SCREEN_W + BEZEL * 2;
   const totalH = SCREEN_H + BEZEL * 2;
-  const scale = Math.min(1, (winH - 32) / totalH, (winW - 32) / totalW);
-  const dark = t.scheme === 'dark';
+  // Rundherum etwas Luft lassen, damit der Rahmen nie an den Panel-Kanten klebt.
+  const MARGIN = 28;
+  const scale = Math.min(1, (winH - MARGIN * 2) / totalH, (winW - MARGIN * 2) / totalW);
 
   return (
-    <View style={[styles.backdrop, { backgroundColor: dark ? '#0A0C10' : '#E8EBF1' }]}>
+    // Bühne transparent — nimmt den Hintergrund der Vorschau/Seite an (kein Grau).
+    <View style={styles.backdrop}>
       <View style={[styles.phone, { width: totalW, height: totalH, transform: [{ scale }] }]}>
         {/* Seitentasten (Deko) */}
         <View style={[styles.sideBtn, { left: -2.5, top: 150, height: 28 }]} />
@@ -76,10 +82,6 @@ export function DeviceFrame({ children }: PropsWithChildren) {
           />
         </View>
       </View>
-
-      <Text style={[styles.caption, { color: dark ? '#5A6170' : '#9AA3B2' }]}>
-        iPhone-Vorschau · auf dem Handy via Expo Go
-      </Text>
     </View>
   );
 }
@@ -141,5 +143,4 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     opacity: 0.35,
   },
-  caption: { position: 'absolute', bottom: 12, fontSize: 12, fontWeight: '500' },
 });

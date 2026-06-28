@@ -1,6 +1,7 @@
 import type { Session } from '@supabase/supabase-js';
 import { createContext, useContext, useEffect, useState, type PropsWithChildren } from 'react';
-import { isSupabaseConfigured, supabase } from '@/data/supabase';
+import { AppState } from 'react-native';
+import { AUTH_DISABLED, isSupabaseConfigured, supabase } from '@/data/supabase';
 
 /**
  * Auth-Zustand der App. Kapselt Supabase Auth (E-Mail + Passwort) inkl.
@@ -41,7 +42,21 @@ export function AuthProvider({ children }: PropsWithChildren) {
     const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
       setSession(next);
     });
-    return () => sub.subscription.unsubscribe();
+
+    // Token-Refresh nur laufen lassen, solange die App im Vordergrund ist — so
+    // bleibt die Session ohne erneutes Anmelden dauerhaft gültig (Supabase-
+    // Empfehlung für React Native). Beim Mount ist die App aktiv → sofort starten.
+    supabase.auth.startAutoRefresh();
+    const appState = AppState.addEventListener('change', (state) => {
+      if (state === 'active') supabase!.auth.startAutoRefresh();
+      else supabase!.auth.stopAutoRefresh();
+    });
+
+    return () => {
+      sub.subscription.unsubscribe();
+      appState.remove();
+      supabase!.auth.stopAutoRefresh();
+    };
   }, []);
 
   // Profil-Zeile sicherstellen (RLS erlaubt self-insert). Nur einmalig anlegen.
@@ -106,4 +121,4 @@ export function useAuth(): AuthState {
   return ctx;
 }
 
-export { isSupabaseConfigured };
+export { AUTH_DISABLED, isSupabaseConfigured };

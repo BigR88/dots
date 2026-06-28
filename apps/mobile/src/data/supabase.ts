@@ -9,6 +9,12 @@ const anonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 // läuft die App gegen lokale Fixtures (siehe data/events.ts).
 export const isSupabaseConfigured = Boolean(url && anonKey);
 
+// Dev-Schalter: Login-Gate überspringen, um ohne Konto an der App zu arbeiten.
+// Der komplette Login-Code bleibt erhalten — zum Aktivieren später einfach
+// EXPO_PUBLIC_AUTH_DISABLED entfernen bzw. auf 0 setzen. Anonyme Nutzer dürfen
+// laut RLS veröffentlichte Events/Venues lesen, daher bleibt die Karte nutzbar.
+export const AUTH_DISABLED = process.env.EXPO_PUBLIC_AUTH_DISABLED === '1';
+
 // SSR-sicherer Speicher: Beim serverseitigen Rendern (Expo Web, Node) gibt es
 // kein `window` — dort In-Memory, sonst AsyncStorage (Browser=localStorage,
 // Native=Gerätespeicher). Verhindert "window is not defined" beim Start.

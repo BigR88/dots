@@ -8,15 +8,20 @@ export interface CategoryDef {
   color: string; // Pin-/Chip-Farbe
 }
 
+// Kräftige, urbane Kategorie-Farben — klar unterscheidbar auf der Satelliten-/
+// Dunkelkarte. Das Marken-Lila (#6C5CFF) bleibt für aktive Marker, CTAs und
+// Branding reserviert; die Kategorien spannen den Farbkreis daneben auf.
 export const CATEGORIES: CategoryDef[] = [
-  { slug: 'day_drinking', name: 'Day Drinking', icon: 'sunny', color: '#FF9F0A' },
-  { slug: 'clubbing', name: 'Clubbing', icon: 'musical-notes', color: '#7B61FF' },
-  { slug: 'bars', name: 'Bars', icon: 'wine', color: '#FF2E93' },
-  { slug: 'open_air', name: 'Open Air', icon: 'leaf', color: '#00D6A0' },
-  { slug: 'student_party', name: 'Studentenparty', icon: 'school', color: '#2E8BFF' },
-  { slug: 'rooftop', name: 'Rooftop', icon: 'business', color: '#FF6A3D' },
-  { slug: 'live_music', name: 'Live Music', icon: 'mic', color: '#FF2D55' },
-  { slug: 'culture', name: 'Kultur', icon: 'color-palette', color: '#B06CFF' },
+  { slug: 'clubbing', name: 'Club', icon: 'musical-notes', color: '#A855F7' }, // Neon-Violett
+  { slug: 'bars', name: 'Bar', icon: 'wine', color: '#FF9500' }, // Warm Amber
+  { slug: 'day_drinking', name: 'Daydrinking', icon: 'sunny', color: '#34D27B' }, // Frisches Grün
+  { slug: 'live_music', name: 'Live Music', icon: 'mic', color: '#19C3E6' }, // Cyan
+  { slug: 'special_event', name: 'Special', icon: 'sparkles', color: '#FF2E93' }, // Magenta
+  { slug: 'food_social', name: 'Food & Social', icon: 'restaurant', color: '#FFC53D' }, // Gold
+  { slug: 'open_air', name: 'Open Air', icon: 'leaf', color: '#00C2A8' }, // Teal
+  { slug: 'student_party', name: 'Student Party', icon: 'school', color: '#3B82F6' }, // Electric Blue
+  { slug: 'rooftop', name: 'Rooftop', icon: 'business', color: '#FF6B4A' }, // Coral
+  { slug: 'culture', name: 'Kultur', icon: 'color-palette', color: '#E64BB0' }, // Pink
 ];
 
 export const CATEGORY_BY_SLUG: Record<string, CategoryDef> = Object.fromEntries(

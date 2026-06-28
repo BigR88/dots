@@ -5,7 +5,7 @@ import { CATEGORY_BY_SLUG } from './categories';
 // damit Liste + Detail ohne laufendes Backend funktionieren.
 
 function cat(slug: string): Category {
-  const d = CATEGORY_BY_SLUG[slug];
+  const d = CATEGORY_BY_SLUG[slug] ?? { name: 'Event', icon: 'ellipse', color: '#94A3B8' };
   return {
     id: slug,
     slug,
@@ -33,6 +33,14 @@ const VENUES: Record<string, Venue> = {
   suedbahnhof: v('Südbahnhof', 'Hedderichstraße 51', 8.6855, 50.0995),
   studihaus: v('Studierendenhaus Bockenheim', 'Mertonstraße 26', 8.651, 50.1245),
   lavana: v('Lavaña Rooftop', 'Junghofstraße 16', 8.676, 50.1145),
+  fortuna: v('Fortuna Irgendwo', 'Schäfergasse 36-38', 8.6856, 50.1172),
+  lokalbahnhof: v('Lokalbahnhof', 'Darmstädter Landstraße 14', 8.6864, 50.1019),
+  maincafe: v('Maincafé', 'Schaumainkai 50', 8.6792, 50.1035),
+  longisland: v('Long Island Beach Bar', 'Weseler Werft 5', 8.7008, 50.1083),
+  kleinmarkthalle: v('Kleinmarkthalle', 'Hasengasse 5-7', 8.6849, 50.1129),
+  festhalle: v('Festhalle', 'Ludwig-Erhard-Anlage 1', 8.6503, 50.1118),
+  pulse: v('Pulse Club', 'Hanauer Landstraße 52', 8.7015, 50.1176),
+  velvet: v('Velvet Rooftop', 'Eschersheimer Landstraße 14', 8.6802, 50.1205),
 };
 
 function v(name: string, address: string, lon: number, lat: number): Venue {
@@ -94,20 +102,51 @@ const SEED: Seed[] = [
   { id: 'e18', title: 'Großes Open Air Festival', description: 'Tagesfestival am Mainufer mit fünf Acts, Foodtrucks und Sonnenschein.', start: '2026-06-20T14:00:00+02:00', end: '2026-06-21T00:00:00+02:00', venue: 'citybeach', category: 'open_air', genre: 'Electronic', vibes: ['festival', 'openair', 'daytime'], price: 'paid', min: 25, max: 35, age: 18, ticket: 'https://citybeach-frankfurt.de', pop: 97 },
   { id: 'e19', title: 'Craft Beer & BBQ Day', description: 'Day-Drinking-Special: lokale Craft-Biere und Smoker-BBQ am Wasser.', start: '2026-06-21T13:00:00+02:00', end: '2026-06-21T20:00:00+02:00', venue: 'botschaft', category: 'day_drinking', vibes: ['craftbeer', 'bbq', 'daydrinking'], price: 'free', age: 18, pop: 51 },
   { id: 'e20', title: 'Kultur & Klub: Ausstellung trifft DJ', description: 'Kunstausstellung am frühen Abend, DJ-Set zur späten Stunde.', start: '2026-06-19T18:00:00+02:00', end: '2026-06-20T03:00:00+02:00', venue: 'silbergold', category: 'culture', genre: 'Electronica', vibes: ['culture', 'art', 'club'], price: 'paid', min: 8, age: 18, pop: 29 },
+
+  // ── „Heute" (= frühester Demo-Tag): lebendige Karte über ganz Frankfurt ──────
+  { id: 'e21', title: 'Pulse — House Allnighter', description: 'Treibender House auf der Mainfloor bis in die Morgenstunden.', start: '2026-06-11T23:00:00+02:00', end: '2026-06-12T06:00:00+02:00', venue: 'gibson', category: 'clubbing', genre: 'House', vibes: ['Popular', 'House', 'Guestlist'], price: 'paid', min: 14, max: 16, age: 18, ticket: 'https://gibson-club.de', pop: 86 },
+  { id: 'e22', title: 'Gibson Warm-Up Floor', description: 'Früher Floor mit Disco-House zum Reinkommen.', start: '2026-06-11T21:30:00+02:00', end: '2026-06-12T01:00:00+02:00', venue: 'gibson', category: 'clubbing', genre: 'Disco House', vibes: ['House', 'Warmup'], price: 'paid', min: 10, age: 18, pop: 41 },
+  { id: 'e23', title: 'Tech House Terrace', description: 'Tech-House auf der Terrasse mit DJs aus der Stadt.', start: '2026-06-11T22:00:00+02:00', end: '2026-06-12T05:00:00+02:00', venue: 'tanzhaus', category: 'clubbing', genre: 'Tech House', vibes: ['House', 'Open Air'], price: 'paid', min: 13, max: 16, age: 18, ticket: 'https://tanzhauswest.com/tickets', pop: 59 },
+  { id: 'e24', title: 'FORTUNA Indie Rave', description: 'Indie trifft Electro — schwitzige Tanznacht im Bahnhofsviertel.', start: '2026-06-11T23:00:00+02:00', end: '2026-06-12T05:00:00+02:00', venue: 'fortuna', category: 'clubbing', genre: 'Indie Electro', vibes: ['Popular', 'Indie'], price: 'paid', min: 8, max: 10, age: 18, external: 'https://fortuna-irgendwo.de', pop: 72 },
+  { id: 'e25', title: 'Penthouse: Hip-Hop & RnB', description: 'Die größten Hip-Hop- und RnB-Anthems auf der Zeil.', start: '2026-06-11T23:00:00+02:00', end: '2026-06-12T05:00:00+02:00', venue: 'zoom', category: 'clubbing', genre: 'Hip-Hop', vibes: ['Hip-Hop', 'Guestlist'], price: 'paid', min: 12, max: 14, age: 18, ticket: 'https://zoomfrankfurt.com', pop: 78 },
+  { id: 'e26', title: 'Negroni Hour', description: 'Aperitivo-Stimmung mit Negronis und Soul in Sachsenhausen.', start: '2026-06-11T19:00:00+02:00', end: '2026-06-12T00:00:00+02:00', venue: 'lokalbahnhof', category: 'bars', vibes: ['Cozy', 'Afterwork'], price: 'free', age: 18, pop: 34 },
+  { id: 'e27', title: 'Spritz am Main', description: 'Aperol, House-Beats und Sonne direkt am Mainufer.', start: '2026-06-11T15:00:00+02:00', end: '2026-06-11T22:00:00+02:00', venue: 'maincafe', category: 'day_drinking', genre: 'House', vibes: ['Daydrink', 'Open Air', 'Riverside'], price: 'free', age: 18, pop: 64 },
+  { id: 'e28', title: 'Beach Daydrink Session', description: 'Sand, Liegestühle und Beach-House am Wasser.', start: '2026-06-11T14:00:00+02:00', end: '2026-06-11T22:00:00+02:00', venue: 'longisland', category: 'day_drinking', genre: 'Beach House', vibes: ['Daydrink', 'Open Air'], price: 'paid', min: 5, age: 18, external: 'https://longisland-frankfurt.de', pop: 57 },
+  { id: 'e29', title: 'Indie Rock Live Doublebill', description: 'Zwei aufstrebende Indie-Rock-Acts an einem Abend.', start: '2026-06-11T20:00:00+02:00', end: '2026-06-12T00:00:00+02:00', venue: 'batschkapp', category: 'live_music', genre: 'Indie Rock', vibes: ['Live', 'Popular'], price: 'paid', min: 18, max: 24, ticket: 'https://batschkapp.de', pop: 50 },
+  { id: 'e30', title: 'Festhalle Sommer Open Air', description: 'Großes Sommer-Open-Air mit Headliner und Lichtshow.', start: '2026-06-11T18:00:00+02:00', end: '2026-06-11T23:30:00+02:00', venue: 'festhalle', category: 'special_event', genre: 'Pop', vibes: ['Special', 'Popular'], price: 'paid', min: 35, max: 59, age: 16, ticket: 'https://festhalle.de', pop: 96 },
+  { id: 'e31', title: 'Open Air Sundowner', description: 'Melodische Beats zum Sonnenuntergang am City Beach.', start: '2026-06-11T17:00:00+02:00', end: '2026-06-11T23:00:00+02:00', venue: 'citybeach', category: 'open_air', genre: 'Melodic House', vibes: ['Open Air', 'Sunset'], price: 'free', age: 18, external: 'https://citybeach-frankfurt.de', pop: 67 },
+  { id: 'e32', title: 'DOTS Summer Special', description: 'Kuratierte Late-Night-Session mit Gästen — nur mit Guestlist.', start: '2026-06-11T20:00:00+02:00', end: '2026-06-12T02:00:00+02:00', venue: 'citybeach', category: 'special_event', genre: 'Electronic', vibes: ['Special', 'Guestlist'], price: 'paid', min: 15, age: 18, pop: 81 },
+  { id: 'e33', title: 'Street Food Social', description: 'Streetfood-Stände, Naturwein und Nachbarschaft in der Kleinmarkthalle.', start: '2026-06-11T17:00:00+02:00', end: '2026-06-11T22:00:00+02:00', venue: 'kleinmarkthalle', category: 'food_social', vibes: ['Food', 'Social'], price: 'free', pop: 45 },
+  { id: 'e34', title: 'BBQ & Beats', description: 'Smoker-BBQ, kühle Drinks und entspannte House-Sounds am Westhafen.', start: '2026-06-11T16:00:00+02:00', end: '2026-06-11T22:00:00+02:00', venue: 'botschaft', category: 'food_social', genre: 'House', vibes: ['Food', 'Daydrink'], price: 'paid', min: 6, age: 18, pop: 53 },
+  { id: 'e35', title: 'Rooftop Golden Hour', description: 'Sonnenuntergang, Cocktails und melodische Beats über den Dächern.', start: '2026-06-11T18:30:00+02:00', end: '2026-06-12T00:00:00+02:00', venue: 'lavana', category: 'rooftop', genre: 'Melodic House', vibes: ['Rooftop', 'Sunset', 'Cocktails'], price: 'paid', min: 12, age: 21, external: 'https://lavana.de', pop: 60 },
+  { id: 'e36', title: 'Campus Warm-Up Party', description: 'Günstige Drinks, Charts und volle Tanzfläche zum Wochenstart.', start: '2026-06-11T21:00:00+02:00', end: '2026-06-12T03:00:00+02:00', venue: 'studihaus', category: 'student_party', genre: 'Charts', vibes: ['Students', 'cheap'], price: 'paid', min: 3, max: 5, age: 18, ticket: 'https://asta-frankfurt.de', pop: 73 },
 ];
 
 /** Alle Demo-Venues (z. B. für Auswahllisten im Admin). */
 export const FIXTURE_VENUES: Venue[] = Object.values(VENUES);
 
-export const FIXTURE_EVENTS: DotsEvent[] = SEED.map((s) => {
+// Die Demo-Events sind fix auf den 11.–21. Juni datiert. Damit der Demo-Modus
+// IMMER aktuelle Events zeigt (unabhängig vom heutigen Datum), verschieben wir
+// alle Zeiten so, dass der früheste Demo-Tag auf „heute" fällt. Die relativen
+// Abstände bleiben erhalten — gleiche Venue-Gruppen pro Tag → korrekte Pins.
+const SEED_EARLIEST_MS = new Date('2026-06-11T00:00:00+02:00').getTime();
+const SEED_SHIFT_MS = (() => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return today.getTime() - SEED_EARLIEST_MS;
+})();
+const shiftSeedTime = (iso: string): string =>
+  new Date(new Date(iso).getTime() + SEED_SHIFT_MS).toISOString();
+
+const SEED_EVENTS: DotsEvent[] = SEED.map((s) => {
   const venue = VENUES[s.venue];
   return {
     id: s.id,
     title: s.title,
     description: s.description,
     status: 'published',
-    startAt: s.start,
-    endAt: s.end,
+    startAt: shiftSeedTime(s.start),
+    endAt: shiftSeedTime(s.end),
     doorsAt: null,
     venueId: venue.id,
     venue,
@@ -132,6 +171,76 @@ export const FIXTURE_EVENTS: DotsEvent[] = SEED.map((s) => {
     favoritesCount: 0,
   };
 });
+
+// ── „Live"-Demo: relativ zu JETZT datiert ───────────────────────────────────
+// Die Seed-Events oben hängen an einer festen Tageszeit; je nach aktueller Uhr
+// ist daher evtl. nichts „live". Diese Events werden relativ zur aktuellen Zeit
+// gesetzt, damit „Läuft jetzt" und „Startet bald" immer demonstrierbar sind.
+interface NowSeed {
+  id: string;
+  title: string;
+  description: string;
+  venue: keyof typeof VENUES;
+  category: string;
+  genre?: string;
+  vibes: string[];
+  price: DotsEvent['priceType'];
+  min?: number;
+  max?: number;
+  age?: number;
+  /** Start relativ zu jetzt in Minuten (negativ = läuft bereits). */
+  startMin: number;
+  /** Dauer in Stunden. */
+  durH: number;
+  pop: number;
+}
+
+const NOW_MS = Date.now();
+
+function nowEvent(p: NowSeed): DotsEvent {
+  const venue = VENUES[p.venue];
+  const start = new Date(NOW_MS + p.startMin * 60_000);
+  const end = new Date(start.getTime() + p.durH * 3_600_000);
+  return {
+    id: p.id,
+    title: p.title,
+    description: p.description,
+    status: 'published',
+    startAt: start.toISOString(),
+    endAt: end.toISOString(),
+    doorsAt: null,
+    venueId: venue.id,
+    venue,
+    location: venue.location,
+    addressOverride: null,
+    categoryId: p.category,
+    category: cat(p.category),
+    musicGenre: p.genre ?? null,
+    vibeTags: p.vibes,
+    priceType: p.price,
+    priceMin: p.min ?? null,
+    priceMax: p.max ?? null,
+    currency: 'EUR',
+    ageRestriction: p.age ?? null,
+    coverImageUrl: null,
+    ticketUrl: null,
+    externalUrl: null,
+    organizerId: null,
+    organizer: null,
+    sourceUrl: null,
+    popularityScore: p.pop,
+    favoritesCount: 0,
+  };
+}
+
+const LIVE_DEMO: DotsEvent[] = [
+  nowEvent({ id: 'live1', title: 'Pulse — Techno Now', description: 'Treibender Techno, gerade jetzt auf dem Floor.', venue: 'pulse', category: 'clubbing', genre: 'Techno', vibes: ['Popular', 'Techno'], price: 'paid', min: 12, max: 15, age: 18, startMin: -40, durH: 6, pop: 90 }),
+  nowEvent({ id: 'live2', title: 'Gibson Live Floor', description: 'House-Allnighter — läuft bereits.', venue: 'gibson', category: 'clubbing', genre: 'House', vibes: ['House', 'Guestlist'], price: 'paid', min: 14, age: 18, startMin: -75, durH: 6, pop: 84 }),
+  nowEvent({ id: 'soon1', title: 'Velvet Rooftop Sundown', description: 'Sundowner mit melodischen Beats — startet gleich.', venue: 'velvet', category: 'rooftop', genre: 'Melodic House', vibes: ['Rooftop', 'Sunset'], price: 'paid', min: 10, age: 21, startMin: 45, durH: 4, pop: 72 }),
+  nowEvent({ id: 'soon2', title: 'Lavaña After Work', description: 'After-Work-Drinks über den Dächern — gleich los.', venue: 'lavana', category: 'rooftop', genre: 'Disco', vibes: ['Afterwork', 'Cocktails'], price: 'free', age: 21, startMin: 80, durH: 4, pop: 58 }),
+];
+
+export const FIXTURE_EVENTS: DotsEvent[] = [...SEED_EVENTS, ...LIVE_DEMO];
 
 // ── Demo-Social-Daten (bis Supabase/Auth verbunden ist) ─────────────────────
 export interface DemoFriend {
