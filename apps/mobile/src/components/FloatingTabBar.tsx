@@ -4,6 +4,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Platform, Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { GradientAvatar } from '@/components/profile/GradientAvatar';
+import { useAuth } from '@/hooks/use-auth';
 import { useTheme } from '@/theme/theme';
 
 const USE_NATIVE_DRIVER = Platform.OS !== 'web';
@@ -39,9 +41,10 @@ const HIDDEN = new Set(['favorites']);
 // profile = „person-circle" (einzelner Kopf in Scheibe = Avatar).
 const ICONS: Record<string, [string, string]> = {
   index: ['map', 'map-outline'],
-  discover: ['sparkles', 'sparkles-outline'],
+  discover: ['flame', 'flame-outline'],
   friends: ['people', 'people-outline'],
   favorites: ['heart', 'heart-outline'],
+  // profile wird NICHT als Ionicon, sondern als Gradient-Avatar gerendert (s. u.).
   profile: ['person-circle', 'person-circle-outline'],
 };
 
@@ -58,6 +61,9 @@ export function FloatingTabBar({ state, descriptors, navigation }: TabBarProps) 
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const dark = t.scheme === 'dark';
+  const { displayName, email } = useAuth();
+  const avatarName = displayName ?? 'Du';
+  const avatarSeed = email ?? displayName ?? 'Du';
 
   const visible = state.routes.filter((r) => !HIDDEN.has(r.name));
   const activeIndex = visible.findIndex((r) => state.routes[state.index]?.key === r.key);
@@ -116,11 +122,17 @@ export function FloatingTabBar({ state, descriptors, navigation }: TabBarProps) 
                 accessibilityState={{ selected: focused }}
                 accessibilityLabel={label}
                 style={styles.item}>
-                <Ionicons
-                  name={(focused ? activeIcon : inactiveIcon) as never}
-                  size={focused ? 23 : 24}
-                  color={focused ? '#fff' : t.colors.textSecondary}
-                />
+                {route.name === 'profile' ? (
+                  <View style={[styles.avatarRing, focused && { borderColor: '#fff' }]}>
+                    <GradientAvatar name={avatarName} seed={avatarSeed} size={25} glow={false} />
+                  </View>
+                ) : (
+                  <Ionicons
+                    name={(focused ? activeIcon : inactiveIcon) as never}
+                    size={focused ? 23 : 24}
+                    color={focused ? '#fff' : t.colors.textSecondary}
+                  />
+                )}
               </Pressable>
             );
           })}
@@ -153,6 +165,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: BAR_PAD,
   },
   item: { flex: 1, height: 40, alignItems: 'center', justifyContent: 'center' },
+  avatarRing: {
+    width: 29,
+    height: 29,
+    borderRadius: 15,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   indicatorSlot: {
     position: 'absolute',
     left: BAR_PAD,

@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EmptyState } from '@/components/EmptyState';
+import { GradientText } from '@/components/GradientText';
 import { EventCard } from '@/components/EventCard';
 import { ScreenGradient } from '@/components/ScreenGradient';
 import { listEventsByIds } from '@/data/events';
@@ -41,9 +42,7 @@ export default function PlansScreen() {
           accessibilityLabel="Zurück">
           <Ionicons name="chevron-back" size={26} color={t.colors.textPrimary} />
         </Pressable>
-        <Text style={[styles.title, { color: t.colors.textPrimary }]}>
-          Deine Pläne<Text style={{ color: t.accent }}>.</Text>
-        </Text>
+        <GradientText style={styles.title}>Deine Pläne.</GradientText>
       </View>
 
       <FlatList

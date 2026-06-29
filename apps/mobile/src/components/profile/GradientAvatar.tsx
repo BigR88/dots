@@ -26,6 +26,8 @@ interface Props {
   onPress?: () => void;
   /** Wenn gesetzt → Foto statt Initiale (über den Marken-Verlauf gelegt). */
   imageUri?: string | null;
+  /** Weicher Farb-Glow (Default an). In der Tab-Bar bewusst aus. */
+  glow?: boolean;
 }
 
 /**
@@ -35,7 +37,7 @@ interface Props {
  * Foto-Upload (Supabase Storage) ist bewusst noch nicht integriert — sobald ein
  * Bucket existiert, kann hier ein <Image> über den Verlauf gelegt werden.
  */
-export function GradientAvatar({ name, seed, size = 84, onPress, imageUri }: Props) {
+export function GradientAvatar({ name, seed, size = 84, onPress, imageUri, glow: showGlow = true }: Props) {
   const [c1, c2] = pairFor(seed ?? name);
   const initial = name.trim().slice(0, 1).toUpperCase() || '·';
 
@@ -44,7 +46,7 @@ export function GradientAvatar({ name, seed, size = 84, onPress, imageUri }: Pro
       colors={[c1, c2]}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
-      style={[styles.circle, glow(c1), { width: size, height: size, borderRadius: size / 2 }]}>
+      style={[styles.circle, showGlow && glow(c1), { width: size, height: size, borderRadius: size / 2 }]}>
       {imageUri ? (
         <Image
           source={{ uri: imageUri }}

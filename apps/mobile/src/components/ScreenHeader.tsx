@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '@/theme/theme';
+import { GradientText } from './GradientText';
 
 interface Props {
   title: string;
@@ -13,10 +14,7 @@ export function ScreenHeader({ title, subtitle, note }: Props) {
   const t = useTheme();
   return (
     <View style={styles.wrap}>
-      <Text style={[styles.title, { color: t.colors.textPrimary }]}>
-        {title}
-        <Text style={{ color: t.accent }}>.</Text>
-      </Text>
+      <GradientText style={styles.title}>{`${title}.`}</GradientText>
       {subtitle ? (
         <Text style={[styles.subtitle, { color: t.colors.textSecondary }]}>{subtitle}</Text>
       ) : null}
@@ -27,7 +25,7 @@ export function ScreenHeader({ title, subtitle, note }: Props) {
 
 const styles = StyleSheet.create({
   wrap: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, gap: 3 },
-  title: { fontSize: 24, fontWeight: '800', letterSpacing: -0.6 },
+  title: { fontSize: 30, fontWeight: '900', letterSpacing: -1 },
   subtitle: { fontSize: 13.5 },
   note: { fontSize: 11, marginTop: 1 },
 });

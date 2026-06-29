@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { GradientText } from '@/components/GradientText';
 import { AccountActionCard } from '@/components/profile/AccountActionCard';
 import { PrivacySettingRow } from '@/components/profile/PrivacySettingRow';
 import { SectionLabel } from '@/components/profile/SectionLabel';
@@ -50,9 +51,7 @@ export default function SettingsScreen() {
           accessibilityLabel={tr('settings.back')}>
           <Ionicons name="chevron-back" size={26} color={t.colors.textPrimary} />
         </Pressable>
-        <Text style={[styles.headerTitle, { color: t.colors.textPrimary }]}>
-          {tr('settings.title')}<Text style={{ color: t.accent }}>.</Text>
-        </Text>
+        <GradientText style={styles.headerTitle}>{`${tr('settings.title')}.`}</GradientText>
       </View>
 
       <ScrollView

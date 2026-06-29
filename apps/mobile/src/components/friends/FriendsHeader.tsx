@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Platform, Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import { useTheme } from '@/theme/theme';
+import { GradientText } from '@/components/GradientText';
 
 interface Props {
   subtitle?: string;
@@ -30,9 +31,7 @@ export function FriendsHeader({
   return (
     <View style={styles.wrap}>
       <View style={{ flex: 1 }}>
-        <Text style={[styles.title, { color: t.colors.textPrimary }]}>
-          Freunde<Text style={{ color: t.accent }}>.</Text>
-        </Text>
+        <GradientText style={styles.title}>Freunde.</GradientText>
         {subtitle ? (
           <Text style={[styles.subtitle, { color: t.colors.textSecondary }]}>{subtitle}</Text>
         ) : null}

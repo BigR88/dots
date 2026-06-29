@@ -12,6 +12,7 @@ import { EmptyState } from '@/components/EmptyState';
 import { EventCard } from '@/components/EventCard';
 import { FilterPanel } from '@/components/FilterPanel';
 import { GlassButton } from '@/components/GlassButton';
+import { GradientText } from '@/components/GradientText';
 import { ScreenBackground } from '@/components/ScreenBackground';
 import { ScreenGradient } from '@/components/ScreenGradient';
 import { SkeletonCard } from '@/components/SkeletonCard';
@@ -87,9 +88,7 @@ export default function DiscoverScreen() {
           {/* Header: Wortmarke + Claim + runder Glas-Button */}
           <View style={styles.headerRow}>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.brand, { color: t.colors.textPrimary }]}>
-                Dashboard<Text style={{ color: t.accent }}>.</Text>
-              </Text>
+              <GradientText style={styles.brand}>Dashboard.</GradientText>
             </View>
             <View>
               <GlassButton

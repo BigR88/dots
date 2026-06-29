@@ -7,6 +7,7 @@ import { Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-nati
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FIXTURE_FRIENDS } from '@dots/shared';
 import { NextPlanCard } from '@/components/profile/NextPlanCard';
+import { GradientText } from '@/components/GradientText';
 import { ProfileHeaderCard } from '@/components/profile/ProfileHeaderCard';
 import { listEventsByIds } from '@/data/events';
 import { isSupabaseConfigured } from '@/data/supabase';
@@ -83,9 +84,7 @@ export default function ProfileScreen() {
         {/* Kopfzeile */}
         <View style={styles.headerRow}>
           <View style={{ flex: 1 }}>
-            <Text style={[styles.title, { color: t.colors.textPrimary }]}>
-              Profil<Text style={{ color: t.accent }}>.</Text>
-            </Text>
+            <GradientText style={styles.title}>Profil.</GradientText>
           </View>
           <Pressable
             onPress={() => router.push('/settings')}
