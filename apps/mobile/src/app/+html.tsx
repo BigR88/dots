@@ -61,11 +61,13 @@ export default function Root({ children }: PropsWithChildren) {
             zIndex: 99999,
             font: '600 11px -apple-system, sans-serif',
             color: '#fff',
-            background: 'rgba(0,0,0,0.6)',
-            padding: '4px 9px',
+            background: 'rgba(0,0,0,0.65)',
+            padding: '5px 10px',
             borderRadius: '8px',
             pointerEvents: 'none',
-            whiteSpace: 'nowrap',
+            maxWidth: '92vw',
+            textAlign: 'center',
+            lineHeight: '1.35',
           }}>
           {BUILD_TAG}
         </div>
@@ -73,17 +75,23 @@ export default function Root({ children }: PropsWithChildren) {
           dangerouslySetInnerHTML={{
             __html: `
             (function(){
-              function probe(side){
+              function sab(){
                 var p=document.createElement('div');
-                p.style.cssText='position:fixed;visibility:hidden;padding-bottom:env(safe-area-inset-'+side+',0px)';
+                p.style.cssText='position:fixed;visibility:hidden;padding-bottom:env(safe-area-inset-bottom,0px)';
                 document.body.appendChild(p);
-                var v=getComputedStyle(p).paddingBottom; p.remove(); return v;
+                var v=parseInt(getComputedStyle(p).paddingBottom)||0; p.remove(); return v;
+              }
+              function vh(unit){
+                var p=document.createElement('div');
+                p.style.cssText='position:fixed;top:0;left:-9999px;width:1px;height:100'+unit;
+                document.body.appendChild(p);
+                var h=p.offsetHeight; p.remove(); return h;
               }
               function read(){
                 var r=document.getElementById('root');
                 var rb=r?Math.round(r.getBoundingClientRect().bottom):'?';
                 var el=document.getElementById('dots-build');
-                if(el) el.textContent='${BUILD_TAG} ih'+window.innerHeight+' sh'+(window.screen&&window.screen.height)+' sab'+probe('bottom')+' rb'+rb;
+                if(el) el.textContent='${BUILD_TAG} sh'+(window.screen&&window.screen.height)+' ih'+window.innerHeight+' vh'+vh('vh')+' dvh'+vh('dvh')+' lvh'+vh('lvh')+' svh'+vh('svh')+' sab'+sab()+' rb'+rb;
               }
               window.addEventListener('load',function(){read();setTimeout(read,900);});
             })();
@@ -97,34 +105,22 @@ export default function Root({ children }: PropsWithChildren) {
 
 // Bei jedem Pages-Deploy hochzählen, damit am Handy sichtbar ist, ob die neue
 // Version geladen wurde (sonst Cache).
-const BUILD_TAG = 'v5';
+const BUILD_TAG = 'v6';
 
 const BODY_CSS = `
 html, body, #root { height: 100%; }
 html, body { margin: 0; overflow: hidden; }
+/* Volle physische Bildschirmhöhe. Messung am Gerät: iOS sperrte die App auf
+   ih=812 ein, obwohl der Screen 874 hoch ist -> Karte endete vor der Kante.
+   lvh (large viewport) = größtmögliche Höhe inkl. Safe-Areas; svh < lvh.
+   Reihenfolge so, dass lvh (falls unterstützt) gewinnt. */
 @supports (height: 100dvh) {
-  html, body { height: 100dvh; }
+  html, body, #root { height: 100dvh; }
 }
-/* #root deckt IMMER den vollen sichtbaren Viewport ab (inkl. aller Safe-Areas,
-   dank viewport-fit=cover). position:fixed + inset:0 ist auf iOS der zuverlässige
-   Weg — height:100dvh lässt im installierten Standalone-Modus die untere
-   Home-Indikator-Safe-Area aus (Karte reicht dann nicht bis zur Kante). BEWUSST
-   NICHT an @media(display-mode:standalone) gekoppelt: iOS matcht das bei „Zum
-   Home-Bildschirm"-Apps nicht zuverlässig, daher griff der frühere Fix nie. */
-#root {
-  position: fixed;
-  top: 0;
-  right: 0;
-  left: 0;
-  /* Unterkante BEWUSST um die untere Safe-Area nach unten ziehen: falls iOS den
-     Fixed-Viewport an der Home-Indikator-Kante enden lässt (dann blieb die Karte
-     darüber stehen), reicht #root so garantiert bis zur physischen Kante. Auf
-     Geräten ohne Inset (Desktop) ist env()=0 -> kein Effekt. */
-  bottom: calc(-1 * env(safe-area-inset-bottom, 0px));
-  height: auto;
-  display: flex;
+@supports (height: 100lvh) {
+  html, body, #root { height: 100lvh; }
 }
-/* Canvas dunkel = Map-Farbe (#0b1622): falls iOS trotzdem irgendwo eine Lücke
-   lässt, blendet sie in die Karte ein statt als weißer Streifen. */
+/* Canvas dunkel = Map-Farbe (#0b1622): falls iOS doch eine Lücke lässt, blendet
+   sie in die Karte ein statt als weißer Streifen. */
 html, body { background-color: #0b1622; }
 `;
