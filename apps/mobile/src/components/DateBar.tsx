@@ -17,6 +17,7 @@ export function DateBar({
   onChange,
   onOpenCalendar,
   horizontalPadding = 14,
+  variant = 'surface',
 }: {
   value: TimeValue;
   onChange: (value: TimeValue) => void;
@@ -24,10 +25,13 @@ export function DateBar({
   /** Seitlicher Innenabstand der Leiste. Auf der Karte 0, damit „Heute" und der
    *  Kalender direkt am Rand der Blase sitzen. */
   horizontalPadding?: number;
+  /** `glass` = transparente, kompakte Pills für die schwebende Karten-Kapsel. */
+  variant?: 'surface' | 'glass';
 }) {
   const t = useTheme();
   const all = dayOptions();
   const visible = all.slice(0, VISIBLE_DAYS);
+  const glass = variant === 'glass';
 
   // Ist ein Tag außerhalb der sichtbaren Pills gewählt (per Kalender)? Dann zeigt
   // der Kalender-Button diesen Tag aktiv an. „Nächste 7 Tage" ebenso. Der Kalender
@@ -42,9 +46,12 @@ export function DateBar({
 
   const pillStyle = (active: boolean) => [
     styles.pill,
+    glass && styles.pillGlass,
     active
       ? { backgroundColor: t.accent, borderColor: t.accent }
-      : { backgroundColor: t.colors.surface, borderColor: t.colors.border },
+      : glass
+        ? { backgroundColor: 'transparent', borderColor: 'transparent' }
+        : { backgroundColor: t.colors.surface, borderColor: t.colors.border },
   ];
 
   return (
@@ -93,6 +100,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minWidth: 44,
   },
+  pillGlass: { paddingHorizontal: 11, paddingVertical: 6, minWidth: 38 },
   calPill: { flexDirection: 'row', gap: 5, marginLeft: 'auto' },
   label: { fontSize: 12.5, fontWeight: '700', letterSpacing: -0.2 },
 });

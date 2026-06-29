@@ -30,7 +30,11 @@ type Section = 'category' | 'quick' | 'sort';
 interface Props {
   search: string;
   onSearch: (v: string) => void;
-  categorySlug: string | null;
+  categorySlug?: string | null;
+  /** Mehrfachauswahl (Karte): Prädikat statt einzelnem Slug. */
+  isCategoryActive?: (slug: string) => boolean;
+  /** Zusammenfassungstext für die Kategorie-Zeile überschreiben (z. B. „3 aktiv"). */
+  activeCategoryLabel?: string;
   onToggleCategory: (slug: string) => void;
   quickFilters: QuickFilterId[];
   onToggleQuick: (id: QuickFilterId) => void;
@@ -49,6 +53,8 @@ export function FilterPanel({
   search,
   onSearch,
   categorySlug,
+  isCategoryActive,
+  activeCategoryLabel,
   onToggleCategory,
   quickFilters,
   onToggleQuick,
@@ -67,7 +73,8 @@ export function FilterPanel({
     onOpenSection(openSection === s ? null : s);
   };
 
-  const catName = CATEGORIES.find((c) => c.slug === categorySlug)?.name ?? 'Alle';
+  const catName =
+    activeCategoryLabel ?? (CATEGORIES.find((c) => c.slug === categorySlug)?.name ?? 'Alle');
   const quickSummary = quickFilters.length ? `${quickFilters.length} aktiv` : 'Keine';
   const sortLabel = SORT_OPTIONS.find((s) => s.id === sort)?.label ?? 'Datum';
 
@@ -91,7 +98,7 @@ export function FilterPanel({
                 label={c.name}
                 icon={c.icon}
                 color={c.color}
-                active={categorySlug === c.slug}
+                active={isCategoryActive ? isCategoryActive(c.slug) : categorySlug === c.slug}
                 onPress={() => onToggleCategory(c.slug)}
               />
             ))}

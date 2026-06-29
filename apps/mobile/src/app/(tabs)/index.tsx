@@ -2,17 +2,16 @@ import { useQuery } from '@tanstack/react-query';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
-import { Platform, StyleSheet, View, type ViewStyle } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NEXT_7_DAYS, type GeoPoint, type QuickFilterId, type TimeValue } from '@dots/shared';
-import { DateBar } from '@/components/DateBar';
 import { DateOverlay } from '@/components/DateOverlay';
 import { EventBottomSheet } from '@/components/EventBottomSheet';
 import { FloatingMapActions } from '@/components/FloatingMapActions';
-import { FloatingMapHeader } from '@/components/FloatingMapHeader';
 import { MapEmptyState } from '@/components/MapEmptyState';
-import { MapFilterSheet } from '@/components/MapFilterSheet';
-import { MapSearchOverlay } from '@/components/MapSearchOverlay';
+import { MapFilterButton } from '@/components/MapFilterButton';
+import { MapFilterDropdown } from '@/components/MapFilterDropdown';
+import { MapHud } from '@/components/MapHud';
 import { MapToast } from '@/components/MapToast';
 import { TimeFilterChips } from '@/components/TimeFilterChips';
 import { MapProvider } from '@/components/map/MapProvider';
@@ -55,7 +54,6 @@ export default function MapScreen() {
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [focus, setFocus] = useState<Focus>(null);
   const [filterOpen, setFilterOpen] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [topH, setTopH] = useState(0);
 
@@ -146,7 +144,6 @@ export default function MapScreen() {
       return () => {
         setSelectedKey(null);
         setFilterOpen(false);
-        setSearchOpen(false);
       };
     }, []),
   );
@@ -192,16 +189,9 @@ export default function MapScreen() {
     router.push(`/event/${id}`);
   };
 
-  const onSearchToggle = () => {
-    setSearchOpen((o) => !o);
-    setFilterOpen(false);
-  };
-  const onFilterOpen = () => {
-    setFilterOpen(true);
-    setSearchOpen(false);
-  };
+  const onFilterOpen = () => setFilterOpen(true);
 
-  const sheetOpen = !!selectedGroup || filterOpen || searchOpen;
+  const sheetOpen = !!selectedGroup || filterOpen;
   const showTimeChips = todayContext && !sheetOpen;
 
   const emptyMessage =
@@ -253,29 +243,21 @@ export default function MapScreen() {
         <MapEmptyState message={emptyMessage} onReset={anyFilter ? resetFilters : undefined} />
       )}
 
-      {/* Schwebende Top-Steuerung */}
+      {/* Schwebende Top-Steuerung („Glass HUD"): schlanke Glas-Kapsel + EIN Filter-Orb */}
       <View
         style={[styles.topOverlay, { paddingTop: insets.top + 6 }]}
         onLayout={(e) => setTopH(e.nativeEvent.layout.height)}
         pointerEvents="box-none">
-        <FloatingMapHeader
-          searchOpen={searchOpen}
-          onSearch={onSearchToggle}
-          onFilter={onFilterOpen}
-          filterCount={activeFilterCount}
-        />
-        <View style={[styles.panel, { backgroundColor: t.colors.surface, borderColor: t.colors.border }]}>
-          <DateBar
-            value={time}
-            onChange={setTime}
-            onOpenCalendar={() => setCalendarOpen(true)}
-            horizontalPadding={0}
-          />
+        <View style={styles.hudRow}>
+          <MapHud time={time} onChangeTime={setTime} onOpenCalendar={() => setCalendarOpen(true)} />
+          <MapFilterButton active={anyFilter} count={activeFilterCount} onPress={onFilterOpen} />
         </View>
 
         {/* Zeit-Chips: nur „Heute", ausgeblendet wenn ein Sheet offen ist */}
         {showTimeChips && (
-          <TimeFilterChips value={timeStatus} counts={counts} onChange={setTimeStatus} />
+          <View style={styles.timeRow}>
+            <TimeFilterChips value={timeStatus} counts={counts} onChange={setTimeStatus} />
+          </View>
         )}
       </View>
 
@@ -298,14 +280,13 @@ export default function MapScreen() {
         />
       )}
 
-      {/* Such-Overlay (getrennt von Filtern) */}
-      {searchOpen && (
-        <MapSearchOverlay value={search} onChange={setSearch} top={topH} onClose={() => setSearchOpen(false)} />
-      )}
-
-      {/* Filter-Bottom-Sheet */}
+      {/* Vereinheitlichtes Filter-Panel — EIN Einstieg, wie im Dashboard
+          (Suche + Kategorie + Schnellfilter), klappt unter der HUD-Kapsel auf */}
       {filterOpen && (
-        <MapFilterSheet
+        <MapFilterDropdown
+          top={topH + 4}
+          search={search}
+          onSearch={setSearch}
           categorySlugs={categorySlugs}
           onToggleCategory={toggleCategory}
           quick={quick}
@@ -335,23 +316,6 @@ const styles = StyleSheet.create({
     gap: 8,
     zIndex: 20,
   },
-  panel: {
-    // Datums-Box über die volle Breite. Wenig Seitenabstand, damit „Heute" und
-    // der Kalender direkt am Rand der Blase sitzen.
-    borderRadius: 22,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 10,
-    paddingTop: 9,
-    paddingBottom: 9,
-    ...(Platform.select({
-      web: { boxShadow: '0 6px 20px rgba(17,17,20,0.12)' } as unknown as ViewStyle,
-      default: {
-        shadowColor: '#111114',
-        shadowOpacity: 0.14,
-        shadowRadius: 16,
-        shadowOffset: { width: 0, height: 8 },
-        elevation: 8,
-      },
-    }) as ViewStyle),
-  },
+  hudRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  timeRow: { paddingLeft: 2 },
 });
