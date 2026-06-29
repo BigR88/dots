@@ -48,23 +48,48 @@ export default function Root({ children }: PropsWithChildren) {
       </head>
       <body>
         {children}
-        {/* Versions-Stempel: bestätigt, dass das NEUE Bundle geladen ist (nicht
-            der iOS-Cache). Sitzt direkt über dem Home-Indikator (Safe-Area) —
-            ist der Text unten lesbar UND kein heller Streifen darunter, sitzt der
-            untere Safe-Area-Fix. Bei jedem Deploy die Zahl hochzählen. */}
+        {/* TEMPORÄRES Mess-Readout: zeigt Version + echte iOS-Viewport-Werte,
+            damit der untere Rand punktgenau gefixt werden kann (statt zu raten).
+            Wird wieder entfernt, sobald die Karte randlos sitzt. */}
         <div
           id="dots-build"
           style={{
             position: 'fixed',
-            right: '8px',
-            bottom: 'calc(env(safe-area-inset-bottom, 0px) + 2px)',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            bottom: '88px',
             zIndex: 99999,
-            font: '9px -apple-system, sans-serif',
-            color: 'rgba(255,255,255,0.55)',
+            font: '600 11px -apple-system, sans-serif',
+            color: '#fff',
+            background: 'rgba(0,0,0,0.6)',
+            padding: '4px 9px',
+            borderRadius: '8px',
             pointerEvents: 'none',
+            whiteSpace: 'nowrap',
           }}>
           {BUILD_TAG}
         </div>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+            (function(){
+              function probe(side){
+                var p=document.createElement('div');
+                p.style.cssText='position:fixed;visibility:hidden;padding-bottom:env(safe-area-inset-'+side+',0px)';
+                document.body.appendChild(p);
+                var v=getComputedStyle(p).paddingBottom; p.remove(); return v;
+              }
+              function read(){
+                var r=document.getElementById('root');
+                var rb=r?Math.round(r.getBoundingClientRect().bottom):'?';
+                var el=document.getElementById('dots-build');
+                if(el) el.textContent='${BUILD_TAG} ih'+window.innerHeight+' sh'+(window.screen&&window.screen.height)+' sab'+probe('bottom')+' rb'+rb;
+              }
+              window.addEventListener('load',function(){read();setTimeout(read,900);});
+            })();
+          `,
+          }}
+        />
       </body>
     </html>
   );
@@ -72,7 +97,7 @@ export default function Root({ children }: PropsWithChildren) {
 
 // Bei jedem Pages-Deploy hochzählen, damit am Handy sichtbar ist, ob die neue
 // Version geladen wurde (sonst Cache).
-const BUILD_TAG = 'build v4';
+const BUILD_TAG = 'v5';
 
 const BODY_CSS = `
 html, body, #root { height: 100%; }
@@ -90,8 +115,12 @@ html, body { margin: 0; overflow: hidden; }
   position: fixed;
   top: 0;
   right: 0;
-  bottom: 0;
   left: 0;
+  /* Unterkante BEWUSST um die untere Safe-Area nach unten ziehen: falls iOS den
+     Fixed-Viewport an der Home-Indikator-Kante enden lässt (dann blieb die Karte
+     darüber stehen), reicht #root so garantiert bis zur physischen Kante. Auf
+     Geräten ohne Inset (Desktop) ist env()=0 -> kein Effekt. */
+  bottom: calc(-1 * env(safe-area-inset-bottom, 0px));
   height: auto;
   display: flex;
 }
