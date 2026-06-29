@@ -54,7 +54,7 @@ export function FloatingTabBar({ state, descriptors, navigation }: TabBarProps) 
   const dark = t.scheme === 'dark';
 
   return (
-    <View style={[styles.wrap, { bottom: insets.bottom + 8 }]} pointerEvents="box-none">
+    <View style={[styles.wrap, { bottom: Math.max(insets.bottom - 8, 6) }]} pointerEvents="box-none">
       <View style={[dark ? styles.shadowDark : styles.shadow, { borderRadius: 30 }]}>
         <View
           style={[

@@ -46,74 +46,19 @@ export default function Root({ children }: PropsWithChildren) {
         <ScrollViewStyleReset />
         <style dangerouslySetInnerHTML={{ __html: BODY_CSS }} />
       </head>
-      <body>
-        {children}
-        {/* TEMPORÄRES Mess-Readout: zeigt Version + echte iOS-Viewport-Werte,
-            damit der untere Rand punktgenau gefixt werden kann (statt zu raten).
-            Wird wieder entfernt, sobald die Karte randlos sitzt. */}
-        <div
-          id="dots-build"
-          style={{
-            position: 'fixed',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            bottom: '88px',
-            zIndex: 99999,
-            font: '600 11px -apple-system, sans-serif',
-            color: '#fff',
-            background: 'rgba(0,0,0,0.65)',
-            padding: '5px 10px',
-            borderRadius: '8px',
-            pointerEvents: 'none',
-            maxWidth: '92vw',
-            textAlign: 'center',
-            lineHeight: '1.35',
-          }}>
-          {BUILD_TAG}
-        </div>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-            (function(){
-              function sab(){
-                var p=document.createElement('div');
-                p.style.cssText='position:fixed;visibility:hidden;padding-bottom:env(safe-area-inset-bottom,0px)';
-                document.body.appendChild(p);
-                var v=parseInt(getComputedStyle(p).paddingBottom)||0; p.remove(); return v;
-              }
-              function vh(unit){
-                var p=document.createElement('div');
-                p.style.cssText='position:fixed;top:0;left:-9999px;width:1px;height:100'+unit;
-                document.body.appendChild(p);
-                var h=p.offsetHeight; p.remove(); return h;
-              }
-              function read(){
-                var r=document.getElementById('root');
-                var rb=r?Math.round(r.getBoundingClientRect().bottom):'?';
-                var el=document.getElementById('dots-build');
-                if(el) el.textContent='${BUILD_TAG} sh'+(window.screen&&window.screen.height)+' ih'+window.innerHeight+' vh'+vh('vh')+' dvh'+vh('dvh')+' lvh'+vh('lvh')+' svh'+vh('svh')+' sab'+sab()+' rb'+rb;
-              }
-              window.addEventListener('load',function(){read();setTimeout(read,900);});
-            })();
-          `,
-          }}
-        />
-      </body>
+      <body>{children}</body>
     </html>
   );
 }
 
-// Bei jedem Pages-Deploy hochzählen, damit am Handy sichtbar ist, ob die neue
-// Version geladen wurde (sonst Cache).
-const BUILD_TAG = 'v6';
-
 const BODY_CSS = `
 html, body, #root { height: 100%; }
 html, body { margin: 0; overflow: hidden; }
-/* Volle physische Bildschirmhöhe. Messung am Gerät: iOS sperrte die App auf
-   ih=812 ein, obwohl der Screen 874 hoch ist -> Karte endete vor der Kante.
-   lvh (large viewport) = größtmögliche Höhe inkl. Safe-Areas; svh < lvh.
-   Reihenfolge so, dass lvh (falls unterstützt) gewinnt. */
+/* Volle physische Bildschirmhöhe für die installierte iOS-PWA. Messung am Gerät
+   zeigte: height:100%/100dvh sperrte die App auf eine kürzere Höhe ein (ih=812
+   bei Screen 874) -> die Karte endete vor der unteren Kante. 100lvh (large
+   viewport) = größtmögliche Höhe inkl. Safe-Areas und füllt zuverlässig bis zur
+   physischen Bildschirmkante. dvh als Fallback, lvh gewinnt wo unterstützt. */
 @supports (height: 100dvh) {
   html, body, #root { height: 100dvh; }
 }
