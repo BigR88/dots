@@ -1,3 +1,4 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useRef } from 'react';
 import { Animated, Platform, Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import type { TimeStatusFilter, TimeStatusCounts } from '@/lib/map-filters';
@@ -71,22 +72,45 @@ function Chip({
       {({ pressed }) => (
         <Animated.View
           style={[
-            styles.chip,
+            styles.chipShell,
             active ? activeShadow : floatShadow,
-            active
-              ? { backgroundColor: t.accent }
-              : { backgroundColor: t.colors.cardGlass, borderColor: t.colors.border, borderWidth: StyleSheet.hairlineWidth },
+            !active && {
+              backgroundColor: t.colors.cardGlass,
+              borderColor: t.colors.glassBorder,
+              borderWidth: StyleSheet.hairlineWidth,
+            },
             { transform: [{ scale: pressed ? 0.95 : pulse }] },
           ]}>
-          <Text style={[styles.label, { color: active ? '#fff' : t.colors.textPrimary }]}>{label}</Text>
-          {count > 0 && (
-            <Text style={[styles.count, { color: active ? 'rgba(255,255,255,0.85)' : t.colors.textMuted }]}>
-              {count}
-            </Text>
+          {active ? (
+            <LinearGradient
+              colors={t.gradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.chip}>
+              <ChipContent label={label} count={count} active />
+            </LinearGradient>
+          ) : (
+            <View style={styles.chip}>
+              <ChipContent label={label} count={count} active={false} />
+            </View>
           )}
         </Animated.View>
       )}
     </Pressable>
+  );
+}
+
+function ChipContent({ label, count, active }: { label: string; count: number; active: boolean }) {
+  const t = useTheme();
+  return (
+    <>
+      <Text style={[styles.label, { color: active ? '#fff' : t.colors.textPrimary }]}>{label}</Text>
+      {count > 0 && (
+        <Text style={[styles.count, { color: active ? 'rgba(255,255,255,0.9)' : t.accent }]}>
+          {count}
+        </Text>
+      )}
+    </>
   );
 }
 
@@ -113,13 +137,14 @@ const activeShadow = Platform.select({
 }) as ViewStyle;
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', gap: 7 },
+  row: { flexDirection: 'row', gap: 8 },
+  chipShell: { borderRadius: 999, overflow: 'hidden' },
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    gap: 6,
+    paddingHorizontal: 13,
+    paddingVertical: 7,
     borderRadius: 999,
   },
   label: { fontSize: 12.5, fontWeight: '700', letterSpacing: -0.1 },

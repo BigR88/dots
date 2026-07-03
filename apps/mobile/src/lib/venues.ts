@@ -85,6 +85,8 @@ export interface VenueMarker {
   status: 'live' | 'soon' | null;
   /** Alle Events am Standort vorbei (heute) → dezenter Marker. */
   past: boolean;
+  /** Trending-Hotspot (absolute Beliebtheit): größerer Marker mit Glow-Halo. */
+  hot: boolean;
 }
 
 export interface MarkerTimeOptions {
@@ -96,6 +98,11 @@ export interface MarkerTimeOptions {
 // Neutral (Slate) für Events ohne Kategorie-Farbe — Marken-Lila bleibt
 // ausschließlich aktiven Markern + CTAs vorbehalten.
 const FALLBACK_COLOR = '#94A3B8';
+
+// Absolute Trending-Schwelle (popularityScore 0..100): ab hier gilt ein Standort
+// als Hotspot — bewusst NICHT relativ zum sichtbaren Set, damit ein einzelnes
+// mittelmäßiges Event nicht plötzlich „trendet", nur weil sonst nichts läuft.
+const HOT_POPULARITY = 75;
 
 /**
  * Wandelt Gruppen in Map-Marker um. Farbe = Kategorie (vom beliebtesten Event
@@ -123,6 +130,15 @@ export function toVenueMarkers(groups: VenueGroup[], opts: MarkerTimeOptions = {
     }
     const past = liveContext && g.events.every((ev) => getEventTimeStatus(ev, now) === 'past');
 
+    // Trending-Basis: im Heute-Kontext zählen nur NICHT-vorbeie Events — sonst
+    // glüht eine Venue weiter, deren Zugpferd längst zu Ende ist.
+    const activePop = liveContext
+      ? g.events.reduce(
+          (m, ev) => (getEventTimeStatus(ev, now) !== 'past' ? Math.max(m, ev.popularityScore) : m),
+          0,
+        )
+      : g.popularity;
+
     return {
       key: g.key,
       lat: g.location.lat,
@@ -136,6 +152,7 @@ export function toVenueMarkers(groups: VenueGroup[], opts: MarkerTimeOptions = {
       timeLabel: formatTime(top.startAt),
       status,
       past,
+      hot: !past && activePop >= HOT_POPULARITY,
     };
   });
 }

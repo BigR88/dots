@@ -29,7 +29,7 @@ export const CATEGORY_BY_SLUG: Record<string, CategoryDef> = Object.fromEntries(
 );
 
 // Zusätzliche, nicht-kategoriebasierte Schnellfilter (Chips).
-export type QuickFilterId = 'free' | 'under_20' | 'near_me';
+export type QuickFilterId = 'free' | 'under_20' | 'near_me' | 'late' | 'popular';
 
 export interface QuickFilterDef {
   id: QuickFilterId;
@@ -38,9 +38,11 @@ export interface QuickFilterDef {
 }
 
 export const QUICK_FILTERS: QuickFilterDef[] = [
-  { id: 'free', label: 'Free Entry', icon: 'pricetag' },
+  { id: 'free', label: 'Kostenlos', icon: 'pricetag' },
   { id: 'under_20', label: '< 20 €', icon: 'cash' },
-  { id: 'near_me', label: 'Nähe', icon: 'location' },
+  { id: 'near_me', label: 'In der Nähe', icon: 'location' },
+  { id: 'late', label: 'Ab 23 Uhr', icon: 'moon' },
+  { id: 'popular', label: 'Beliebt', icon: 'flame' },
 ];
 
 /**

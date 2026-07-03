@@ -28,7 +28,16 @@ export function MapHud({
       <BlurView
         intensity={40}
         tint={dark ? 'dark' : 'light'}
-        style={[styles.hud, { backgroundColor: t.colors.cardGlass, borderColor: t.colors.glassBorder }]}>
+        style={[styles.hud, { borderColor: t.colors.glassBorder }]}>
+        {/* Deckschicht: expo-blur (Web) überschreibt backgroundColor mit einer
+            eigenen, zu dünnen Tint-Fläche — so bleibt die Kapsel klar lesbar. */}
+        <View
+          pointerEvents="none"
+          style={[
+            StyleSheet.absoluteFill,
+            { backgroundColor: dark ? 'rgba(23,24,28,0.78)' : 'rgba(255,255,255,0.8)' },
+          ]}
+        />
         <View pointerEvents="none" style={[styles.litEdge, { backgroundColor: t.colors.glassHighlight }]} />
         <LinearGradient
           colors={t.gradient}

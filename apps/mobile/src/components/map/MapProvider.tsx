@@ -2,9 +2,16 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 import type { GeoPoint } from '@dots/shared';
-import { buildMarkerIcon, MARKER_CSS, MARKER_ZOOM } from '@/lib/map-markers';
+import { buildClusterIcon, buildMarkerIcon, MARKER_CSS, MARKER_ZOOM } from '@/lib/map-markers';
+import { clusterMarkers } from '@/lib/map-clusters';
 import { DISTRICTS, DISTRICT_CSS } from '@/lib/districts';
-import { HOT_AREA_CSS, HOT_AREA_MAX_ZOOM, type HotArea } from '@/lib/hot-areas';
+import {
+  ENERGY_ZONES,
+  ENERGY_ZONE_MAX_ZOOM,
+  HOT_AREA_CSS,
+  HOT_AREA_MAX_ZOOM,
+  type HotArea,
+} from '@/lib/hot-areas';
 import type { VenueMarker } from '@/lib/venues';
 
 /**
@@ -51,8 +58,11 @@ const MAP_HTML = `<!DOCTYPE html>
 (function(){
   function send(o){ if(window.ReactNativeWebView){ window.ReactNativeWebView.postMessage(JSON.stringify(o)); } }
   var map=L.map('map',{zoomControl:false,attributionControl:false,minZoom:11,maxZoom:19,maxBounds:[[49.85,8.3],[50.4,9.05]],maxBoundsViscosity:1,zoomSnap:.5}).setView([50.113,8.682],${FRANKFURT_ZOOM});
-  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19}).addTo(map);
-  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,opacity:.55}).addTo(map);
+  // Label-freie Dark-Basemap + Namen in zwei Fenstern: Städte ganz rausgezoomt,
+  // Straßen erst ab Venue-Zoom — dazwischen DOTS-Labels (Parität zum Web).
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png',{maxZoom:19}).addTo(map);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png',{maxZoom:19,minZoom:15.5,opacity:.85}).addTo(map);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png',{minZoom:11,maxZoom:12.4,opacity:.8}).addTo(map);
   map.on('click',function(){ send({type:'select',key:null}); });
   map.on('zoomend',function(){ send({type:'zoom',zoom:map.getZoom()}); });
   var tint=document.createElement('div'); tint.className='dots-map-tint'; document.getElementById('map').appendChild(tint);
@@ -73,24 +83,47 @@ const MAP_HTML = `<!DOCTYPE html>
         if(placed.some(function(q){ return Math.abs(q.x-p.x)<70 && Math.abs(q.y-p.y)<40; })) return;
         placed.push(p);
         var dim=z>=16;
-        var icon=L.divIcon({className:'dots-district-icon',html:'<div class="dots-district'+(dim?' is-dim':'')+'">'+d.name+'</div>',iconSize:[170,20],iconAnchor:[85,10]});
+        var icon=L.divIcon({className:'dots-district-icon',html:'<div class="dots-district'+(d.nightlife?' is-night':'')+(dim?' is-dim':'')+'">'+d.name+'</div>',iconSize:[170,20],iconAnchor:[85,10]});
         L.marker([d.lat,d.lon],{icon:icon,pane:'dotsDistricts',interactive:false,keyboard:false}).addTo(dgrp);
       });
   }
   map.on('zoomend moveend',renderDistricts);
-  // Hot Areas: weicher Glow ganz hinten (über Kacheln, unter allem anderen), zoom-gated.
+  // Hot Areas + Energie-Zonen: weiche Glows ganz hinten (über Kacheln, unter
+  // allem anderen), zoom-gated. Zonen = statische Nightlife-Atmosphäre.
   map.createPane('dotsHot'); map.getPane('dotsHot').style.zIndex=335; map.getPane('dotsHot').style.pointerEvents='none';
   var hgrp=L.layerGroup().addTo(map);
   var HOT=[]; var HOT_MAX_Z=${HOT_AREA_MAX_ZOOM};
+  var ZONES=${JSON.stringify(ENERGY_ZONES)}; var ZONE_MAX_Z=${ENERGY_ZONE_MAX_ZOOM};
+  function pxDiameter(lat,lon,radiusM){
+    var pc=map.latLngToContainerPoint([lat,lon]);
+    var pe=map.latLngToContainerPoint([lat+radiusM/111320,lon]);
+    return Math.abs(pe.y-pc.y)*2;
+  }
+  // Tageszeit-Energie (Parität zu lib/hot-areas.ts nightEnergyFactor).
+  function nightEnergy(){
+    var now=new Date(); var h=now.getHours()+now.getMinutes()/60;
+    if(h>=21||h<4) return 1;
+    if(h>=16) return 0.5+0.5*((h-16)/5);
+    if(h<8) return 1-0.5*((h-4)/4);
+    return 0.5;
+  }
   function renderHot(){
     hgrp.clearLayers();
-    if(map.getZoom()>HOT_MAX_Z) return;
-    HOT.forEach(function(a){
-      var edge=[a.lat+(a.spreadM+250)/111320, a.lon];
-      var pc=map.latLngToContainerPoint([a.lat,a.lon]); var pe=map.latLngToContainerPoint(edge);
-      var d=Math.max(120,Math.min(320,Math.abs(pe.y-pc.y)*2));
-      var op=0.55+0.45*(a.intensity||0);
-      var icon=L.divIcon({className:'dots-hot-icon',html:'<div class="dots-hot" style="width:'+d+'px;height:'+d+'px;opacity:'+op+'"></div>',iconSize:[d,d],iconAnchor:[d/2,d/2]});
+    var z=map.getZoom();
+    var energy=nightEnergy();
+    if(z<=ZONE_MAX_Z){
+      ZONES.forEach(function(zn,i){
+        var d=Math.max(90,Math.min(420,pxDiameter(zn.lat,zn.lon,zn.radiusM)));
+        var html='<div class="dots-zone" style="width:'+d+'px;height:'+d+'px;opacity:'+energy+'"><i style="background:radial-gradient(circle, '+zn.color+'24 0%, '+zn.color+'14 42%, '+zn.color+'00 72%);animation-delay:-'+(i*1.3)+'s"></i></div>';
+        var icon=L.divIcon({className:'dots-hot-icon',html:html,iconSize:[d,d],iconAnchor:[d/2,d/2]});
+        L.marker([zn.lat,zn.lon],{icon:icon,pane:'dotsHot',interactive:false,keyboard:false}).addTo(hgrp);
+      });
+    }
+    if(z>HOT_MAX_Z) return;
+    HOT.forEach(function(a,i){
+      var d=Math.max(120,Math.min(320,pxDiameter(a.lat,a.lon,a.spreadM+250)));
+      var op=(0.55+0.45*(a.intensity||0))*Math.sqrt(energy);
+      var icon=L.divIcon({className:'dots-hot-icon',html:'<div class="dots-hot" style="width:'+d+'px;height:'+d+'px;opacity:'+op+'"><i style="animation-delay:-'+(i*1.7)+'s"></i></div>',iconSize:[d,d],iconAnchor:[d/2,d/2]});
       L.marker([a.lat,a.lon],{icon:icon,pane:'dotsHot',interactive:false,keyboard:false}).addTo(hgrp);
     });
   }
@@ -98,11 +131,20 @@ const MAP_HTML = `<!DOCTYPE html>
   map.on('zoomend moveend',renderHot);
   var group=L.layerGroup().addTo(map);
   var userMarker=null;
+  // Keyed Diff (Parität zum Web): neue Marker blühen gestaffelt auf, entfernte
+  // schrumpfen weg, bestehende nur setIcon bei echter Änderung.
+  var live={};
+  function markerClick(m){
+    return function(e){
+      if(e&&e.originalEvent){ L.DomEvent.stopPropagation(e.originalEvent); }
+      if(m.cl){ map.flyTo([m.lat,m.lon],Math.min(Math.max(map.getZoom()+1.7,14),${MARKER_ZOOM.label}),{duration:.55}); }
+      else { send({type:'select',key:m.key}); }
+    };
+  }
   window.setMarkers=function(list){
-    group.clearLayers();
     list=list||[];
-    // Label-Declutter (Parität zum Web): nur kollisionsfreie Labels — Priorität
-    // Auswahl, dann Beliebtheit; rechteckige Kollision (Labels sind breit).
+    // Label-Declutter: nur kollisionsfreie Labels — Priorität Auswahl, dann
+    // Beliebtheit; rechteckige Kollision (Labels sind breit).
     var withLabel={};
     if(list.length){
       var pts=list.map(function(m){ return {m:m,p:map.latLngToContainerPoint([m.lat,m.lon])}; });
@@ -111,11 +153,39 @@ const MAP_HTML = `<!DOCTYPE html>
       pts.forEach(function(o){ if(!o.m.canLabel)return; if(pl.some(function(q){return Math.abs(q.x-o.p.x)<118 && Math.abs(q.y-o.p.y)<26;}))return; pl.push(o.p); withLabel[o.m.key]=true; });
     }
     labelledLL=list.filter(function(m){return withLabel[m.key];}).map(function(m){return [m.lat,m.lon];});
+    var next={};
+    list.forEach(function(m){ next[m.key]=1; });
+    Object.keys(live).forEach(function(k){
+      var e=live[k];
+      if(next[k]||e.t) return;
+      e.mk.off('click');
+      e.mk.setIcon(L.divIcon({className:'dots-marker-icon dots-anim-out',html:e.h,iconSize:[e.w,e.w],iconAnchor:[e.w/2,e.w/2]}));
+      e.t=setTimeout(function(){ group.removeLayer(e.mk); delete live[k]; },240);
+    });
+    var ni=0;
     list.forEach(function(m){
-      var icon=L.divIcon({className:'dots-marker-icon',html:withLabel[m.key]?m.htmlL:m.htmlP,iconSize:[m.w,m.w],iconAnchor:[m.w/2,m.w/2]});
-      var mk=L.marker([m.lat,m.lon],{icon:icon,zIndexOffset:m.sel?1000:0});
-      mk.on('click',function(e){ if(e&&e.originalEvent){ L.DomEvent.stopPropagation(e.originalEvent); } send({type:'select',key:m.key}); });
-      mk.addTo(group);
+      var h=withLabel[m.key]?m.htmlL:m.htmlP;
+      var z=m.sel?1000:(m.cl?100:(m.hot?300:0));
+      var e=live[m.key];
+      if(e){
+        var back=!!e.t;
+        if(e.t){ clearTimeout(e.t); e.t=null; }
+        if(back){ e.mk.on('click',markerClick(m)); }
+        if(back||e.h!==h||e.w!==m.w){
+          e.mk.setIcon(L.divIcon({className:'dots-marker-icon',html:h,iconSize:[m.w,m.w],iconAnchor:[m.w/2,m.w/2]}));
+          e.h=h; e.w=m.w;
+        }
+        e.mk.setZIndexOffset(z);
+      } else {
+        var icon=L.divIcon({className:'dots-marker-icon dots-anim-in',html:h,iconSize:[m.w,m.w],iconAnchor:[m.w/2,m.w/2]});
+        var mk=L.marker([m.lat,m.lon],{icon:icon,zIndexOffset:z});
+        mk.on('click',markerClick(m));
+        mk.addTo(group);
+        var el=mk.getElement()&&mk.getElement().querySelector('.dots-marker');
+        var delay=Math.min(ni*24,200); ni++;
+        if(el&&delay>0){ el.style.animationDelay=delay+'ms'; }
+        live[m.key]={mk:mk,h:h,w:m.w,t:null};
+      }
     });
     renderDistricts();
   };
@@ -157,9 +227,21 @@ export function MapProvider({
   const pushMarkers = useCallback(() => {
     // Marker-HTML in TS bauen (gleiche Quelle wie Web). Pro Marker zwei Varianten
     // (mit/ohne Label) + canLabel — den Declutter macht die WebView per Projektion.
-    const canLabel = zoom >= MARKER_ZOOM.label;
+    // Bei niedrigem Zoom: Proximity-Cluster statt einzelner Venue-Dots.
+    const { singles, clusters } = clusterMarkers(markers, zoom);
+    const canLabelZoom = zoom >= MARKER_ZOOM.label;
     const showDetail = zoom >= MARKER_ZOOM.detail;
-    const payload = markers.map((m) => {
+    // Smart-Callouts: Top-2-Trending bleiben auch weit rausgezoomt beschriftet.
+    const callouts = new Set(
+      canLabelZoom
+        ? []
+        : [...singles]
+            .filter((m) => m.hot && !m.past)
+            .sort((a, b) => b.intensity - a.intensity)
+            .slice(0, 2)
+            .map((m) => m.key),
+    );
+    const payload: object[] = singles.map((m) => {
       const selected = m.key === selectedKey;
       const labeled = buildMarkerIcon(m, { selected, showLabel: true, showDetail });
       const plain = buildMarkerIcon(m, { selected, showLabel: false, showDetail: false });
@@ -169,11 +251,26 @@ export function MapProvider({
         lon: m.lon,
         w: plain.size,
         sel: selected,
+        hot: m.hot,
         intensity: m.intensity,
-        canLabel,
+        canLabel: canLabelZoom || callouts.has(m.key),
         htmlL: labeled.html,
         htmlP: plain.html,
       };
+    });
+    clusters.forEach((c) => {
+      const icon = buildClusterIcon(c);
+      payload.push({
+        key: c.key,
+        lat: c.lat,
+        lon: c.lon,
+        w: icon.size,
+        cl: 1,
+        intensity: c.intensity,
+        canLabel: false,
+        htmlL: icon.html,
+        htmlP: icon.html,
+      });
     });
     run(`window.setMarkers && window.setMarkers(${JSON.stringify(payload)})`);
   }, [markers, selectedKey, zoom, run]);

@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useState } from 'react';
-import { Platform, Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Animated, Platform, Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import { NEXT_7_DAYS, type TimeValue } from '@dots/shared';
 import {
   isIsoDay,
@@ -40,11 +40,14 @@ export function DateOverlay({
   value,
   onSelect,
   onClose,
+  dayCounts,
 }: {
   visible: boolean;
   value: TimeValue;
   onSelect: (value: TimeValue) => void;
   onClose: () => void;
+  /** Event-Anzahl je ISO-Tag → kleine Punkte unter Tagen mit Events. */
+  dayCounts?: Record<string, number>;
 }) {
   const t = useTheme();
 
@@ -56,10 +59,19 @@ export function DateOverlay({
 
   // Angezeigter Monat — beim Öffnen auf den gewählten (bzw. heutigen) Tag setzen.
   const [view, setView] = useState({ year: today.getFullYear(), month: today.getMonth() });
+  // Sanftes Einblenden (Fade + Scale) beim Öffnen.
+  const fade = useRef(new Animated.Value(0)).current;
+  const scale = useRef(new Animated.Value(0.94)).current;
   useEffect(() => {
     if (!visible) return;
     const base = isIsoDay(value) ? parseIsoDay(value) : today;
     setView({ year: base.getFullYear(), month: base.getMonth() });
+    fade.setValue(0);
+    scale.setValue(0.94);
+    Animated.parallel([
+      Animated.timing(fade, { toValue: 1, duration: 170, useNativeDriver: Platform.OS !== 'web' }),
+      Animated.spring(scale, { toValue: 1, bounciness: 5, speed: 15, useNativeDriver: Platform.OS !== 'web' }),
+    ]).start();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 
@@ -92,6 +104,7 @@ export function DateOverlay({
     <View style={styles.fill}>
       <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Schließen">
         {/* Karte fängt Taps ab, damit sie nicht den Backdrop schließen */}
+        <Animated.View style={{ width: '100%', maxWidth: 360, opacity: fade, transform: [{ scale }] }}>
         <Pressable
           style={[styles.card, { backgroundColor: t.colors.surface, borderColor: t.colors.border }, cardShadow]}
           onPress={() => {}}>
@@ -124,6 +137,9 @@ export function DateOverlay({
                 const selectable = c.iso >= minIso && c.iso <= maxIso;
                 const isSelected = value === c.iso;
                 const isToday = c.iso === minIso;
+                // Event-Punkte: 1 (wenig), 2 (einige), 3 (viele Events am Tag).
+                const count = selectable ? (dayCounts?.[c.iso] ?? 0) : 0;
+                const dots = count >= 6 ? 3 : count >= 3 ? 2 : count >= 1 ? 1 : 0;
                 return (
                   <View key={c.iso} style={styles.cell}>
                     <Pressable
@@ -151,6 +167,19 @@ export function DateOverlay({
                         ]}>
                         {c.dayNum}
                       </Text>
+                      {dots > 0 && (
+                        <View style={styles.dotRow} pointerEvents="none">
+                          {Array.from({ length: dots }, (_, i) => (
+                            <View
+                              key={i}
+                              style={[
+                                styles.eventDot,
+                                { backgroundColor: isSelected ? '#fff' : t.accent },
+                              ]}
+                            />
+                          ))}
+                        </View>
+                      )}
                     </Pressable>
                   </View>
                 );
@@ -179,6 +208,7 @@ export function DateOverlay({
             </Text>
           </Pressable>
         </Pressable>
+        </Animated.View>
       </Pressable>
     </View>
   );
@@ -233,7 +263,6 @@ const styles = StyleSheet.create({
   },
   card: {
     width: '100%',
-    maxWidth: 360,
     borderRadius: 24,
     borderWidth: StyleSheet.hairlineWidth,
     padding: 18,
@@ -265,6 +294,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   dayNum: { fontSize: 14.5, fontWeight: '600' },
+  dotRow: {
+    position: 'absolute',
+    bottom: 4,
+    flexDirection: 'row',
+    gap: 2.5,
+    alignSelf: 'center',
+  },
+  eventDot: { width: 4, height: 4, borderRadius: 2 },
   rangeBtn: {
     marginTop: 14,
     flexDirection: 'row',

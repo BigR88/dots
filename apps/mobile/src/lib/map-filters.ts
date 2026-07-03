@@ -1,7 +1,7 @@
 import type { DotsEvent, GeoPoint, QuickFilterId } from '@dots/shared';
 import { distanceMeters } from '@/lib/geo';
 import { isFree, isUnder20 } from '@/lib/format';
-import { displayTimeStatus } from '@/lib/event-time';
+import { displayTimeStatus, getEventEndTime } from '@/lib/event-time';
 
 /**
  * Zentrale Map-Filterlogik — EINE Quelle, keine doppelte Filterung in Komponenten.
@@ -38,10 +38,22 @@ export function filterEventsByCategory(events: DotsEvent[], slugs: string[]): Do
   return events.filter((e) => e.category != null && set.has(e.category.slug));
 }
 
+/** Beliebtheits-Schwelle für den „Beliebt"-Schnellfilter (popularityScore 0..100). */
+const POPULAR_MIN_SCORE = 70;
+
+/** „Ab 23 Uhr": Event läuft um/nach 23:00 seines Start-Tags noch (Late-Night). */
+function runsLate(e: DotsEvent): boolean {
+  const threshold = new Date(e.startAt);
+  threshold.setHours(23, 0, 0, 0);
+  return getEventEndTime(e).getTime() > threshold.getTime();
+}
+
 export function filterEventsByQuick(events: DotsEvent[], quick: QuickFilterId[]): DotsEvent[] {
   let out = events;
   if (quick.includes('free')) out = out.filter((e) => isFree(e));
   if (quick.includes('under_20')) out = out.filter((e) => isUnder20(e));
+  if (quick.includes('late')) out = out.filter(runsLate);
+  if (quick.includes('popular')) out = out.filter((e) => e.popularityScore >= POPULAR_MIN_SCORE);
   return out;
 }
 

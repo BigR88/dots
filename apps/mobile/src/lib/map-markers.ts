@@ -32,15 +32,19 @@ export interface MarkerInput {
   status?: 'live' | 'soon' | null;
   /** Alle Events am Standort vorbei → Marker dezenter. */
   past?: boolean;
+  /** Trending-Hotspot: größerer Dot mit atmendem Glow-Halo. */
+  hot?: boolean;
 }
 
 /** Transparenter Tap-Halo rund um den Dot (bessere Tappbarkeit ohne mehr Optik). */
 export const MARKER_HIT_PAD = 7;
 
-/** Dot-Durchmesser in px: Einzel-Event klein, mehrere/­beliebte etwas größer. */
-export function markerSize(intensity: number, count: number, selected: boolean): number {
+/** Dot-Durchmesser in px: Regular klein, Trending/mehrere Events größer. */
+export function markerSize(intensity: number, count: number, selected: boolean, hot = false): number {
   const base =
-    count > 1 ? 22 + Math.min(count, 6) * 3 + Math.round(intensity * 4) : 14 + Math.round(intensity * 7);
+    count > 1
+      ? 22 + Math.min(count, 6) * 3 + Math.round(intensity * 4)
+      : 12 + Math.round(intensity * 6) + (hot ? 5 : 0);
   return selected ? base + 4 : base;
 }
 
@@ -57,23 +61,49 @@ function esc(s: string): string {
  * beide Hosts identisch eingespielt — Web per <style>, nativ im HTML-<head>.
  */
 export const MARKER_CSS = `
-/* Satellit beruhigen: leicht abdunkeln + entsättigen, damit die Marker tragen. */
-.leaflet-tile-pane{filter:saturate(.78) brightness(.72) contrast(1.06);}
-/* Dezente Nightlife-Vignette (Eck-/Randabdunklung). Mitte bleibt transparent,
-   damit die Marker NICHT abgedunkelt werden — die eigentliche Abdunklung/
-   Entsättigung der Karte macht der Tile-Filter darunter. */
-/* z-index 450: ÜBER dem Leaflet-Map-Pane (400), sonst läge die Vignette hinter
-   den opaken Kacheln und wäre unsichtbar. Da Mitte transparent → Marker tragen. */
+/* CARTO dark ist sehr dunkel: kräftig aufhellen und ins Blauviolette schieben —
+   Straßennetz bleibt sichtbar, die Nightlife-Stimmung kommt aus Tint + Glows. */
+.leaflet-tile-pane{filter:brightness(2.3) sepia(.24) hue-rotate(210deg) saturate(1.6) contrast(.9);}
+/* Nightlife-Atmosphäre über der Karte (Mitte bleibt frei, damit Marker tragen):
+   1) sanfte Vignette (Tiefe)  2) hauchdünner Blau-Violett-Wash  3) Stadtlicht.
+   Bewusst leicht — die Karte soll leuchten, nicht ersticken.
+   z-index 450: ÜBER dem Leaflet-Map-Pane (400), sonst läge das Overlay hinter
+   den opaken Kacheln und wäre unsichtbar. */
 .dots-map-tint{position:absolute;inset:0;z-index:450;pointer-events:none;
-  background:radial-gradient(116% 82% at 50% 42%, rgba(8,9,18,0) 56%, rgba(7,8,16,.34) 100%),
-    linear-gradient(180deg, rgba(7,8,16,0) 78%, rgba(7,8,16,.24) 100%);}
+  background:
+    radial-gradient(118% 88% at 50% 40%, rgba(10,8,26,0) 55%, rgba(10,8,26,.26) 100%),
+    linear-gradient(180deg, rgba(34,24,80,.12) 0%, rgba(14,10,32,.02) 34%, rgba(64,36,128,.06) 70%, rgba(9,7,22,.22) 100%),
+    radial-gradient(85% 50% at 50% 110%, rgba(108,92,255,.08) 0%, rgba(108,92,255,0) 62%);}
 .dots-marker-icon{background:transparent!important;border:0!important;}
 .dots-marker{position:relative;display:flex;align-items:center;justify-content:center;}
+/* Eintritt/Austritt: Marker blühen beim Filtern sanft auf bzw. schrumpfen weg.
+   Die Klassen setzt der Host auf dem Icon-Element (nur für NEUE bzw. entfernte
+   Marker) — Zoom-Rebuilds derselben Keys animieren nicht. */
+.dots-anim-in .dots-marker{animation:dots-in .42s cubic-bezier(.18,1.3,.4,1) backwards;}
+.dots-anim-out .dots-marker{animation:dots-out .22s ease-in forwards;animation-delay:0ms!important;}
+@keyframes dots-in{from{transform:scale(.3);opacity:0}to{transform:scale(1);opacity:1}}
+@keyframes dots-out{to{transform:scale(.4);opacity:0}}
 .dots-dot{position:relative;border-radius:50%;display:flex;align-items:center;justify-content:center;
   border:1.5px solid rgba(255,255,255,.9);box-sizing:border-box;color:#fff;line-height:1;
   transition:transform .15s ease;}
 .dots-dot__n{font-weight:800;color:#fff;}
 .dots-dot.is-sel{border-color:#fff;z-index:1000;}
+/* Atmender Energie-Halo hinter Trending-/Live-Markern (Farbe inline via --halo).
+   Zentrier-Transform + Ruhe-Opacity liegen im Basis-Stil, damit der Halo auch
+   OHNE Animation (prefers-reduced-motion) korrekt zentriert und gedimmt ist. */
+.dots-halo{position:absolute;left:50%;top:50%;width:230%;height:230%;border-radius:50%;
+  pointer-events:none;background:radial-gradient(circle, var(--halo) 0%, rgba(0,0,0,0) 62%);
+  transform:translate(-50%,-50%);opacity:.55;
+  animation:dots-breathe 2.8s ease-in-out infinite;}
+@keyframes dots-breathe{0%,100%{transform:translate(-50%,-50%) scale(.82);opacity:.4}50%{transform:translate(-50%,-50%) scale(1.12);opacity:.72}}
+/* Cluster-Bubble: dunkles Glas mit Lila-Kante — „mehrere Events in dieser Gegend".
+   Tipp darauf zoomt hinein (kein Venue-Select). */
+.dots-cluster{position:relative;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:radial-gradient(circle at 32% 26%, rgba(84,66,160,.95) 0%, rgba(26,20,52,.95) 70%);
+  border:1.5px solid rgba(196,182,255,.8);box-sizing:border-box;color:#fff;line-height:1;
+  box-shadow:0 0 0 4px rgba(108,92,255,.16),0 0 20px rgba(108,92,255,.5),0 4px 16px rgba(0,0,0,.55);}
+.dots-cluster__n{font-weight:800;letter-spacing:-.3px;}
+.dots-cluster__u{font-size:8px;font-weight:700;letter-spacing:.5px;opacity:.72;margin-top:2px;text-transform:uppercase;}
 .dots-ring{position:absolute;inset:-8px;border-radius:50%;border:3px solid ${ACCENT};
   pointer-events:none;animation:dots-ping 1.7s cubic-bezier(0,0,.2,1) infinite;}
 /* „Läuft jetzt": sanfter, langsamer Puls in Kategorie-Farbe (border-color inline). */
@@ -96,6 +126,8 @@ export const MARKER_CSS = `
 .dots-user::after{content:'';position:absolute;top:50%;left:50%;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;background:${ACCENT};border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);}
 @keyframes dots-pulse{0%{transform:scale(.6);opacity:.9}100%{transform:scale(2.4);opacity:0}}
 .leaflet-container{background:#0b1622;}
+/* Barrierefreiheit: reduzierte Bewegung → dauerhafte Animationen aus (Enter/Exit bleiben, sie sind einmalig + kurz). */
+@media (prefers-reduced-motion: reduce){.dots-halo,.dots-ring,.dots-hot i,.dots-user::before{animation:none!important;}}
 `;
 
 export interface MarkerIcon {
@@ -116,17 +148,30 @@ export function buildMarkerIcon(
   m: MarkerInput,
   { selected, showLabel, showDetail }: { selected: boolean; showLabel: boolean; showDetail: boolean },
 ): MarkerIcon {
-  const dot = markerSize(m.intensity, m.count, selected);
+  const hot = !!m.hot && !m.past;
+  const dot = markerSize(m.intensity, m.count, selected, hot);
   const box = dot + MARKER_HIT_PAD * 2; // transparenter Tap-Halo rundherum
   const numFont = Math.max(10, Math.round(dot * 0.46));
   const multi = m.count > 1;
 
-  // Auf der dunkleren Karte: ausgewählter Marker mit kräftigem Lila-Ring + Glow.
+  // Auf der dunkleren Karte: ausgewählter Marker mit kräftigem Lila-Ring + Glow;
+  // Trending-Marker leuchten stärker in ihrer Kategorie-Farbe.
   const glow = selected
     ? `0 0 0 3px rgba(108,92,255,.95),0 0 14px ${ACCENT},0 0 22px ${m.color}99,0 2px 8px rgba(0,0,0,.5)`
-    : `0 0 8px ${m.color}cc,0 1px 4px rgba(0,0,0,.45)`;
+    : hot
+      ? `0 0 12px ${m.color}e6,0 0 26px ${m.color}73,0 2px 6px rgba(0,0,0,.5)`
+      : `0 0 8px ${m.color}cc,0 2px 6px rgba(0,0,0,.5)`;
 
   const num = multi ? `<span class="dots-dot__n" style="font-size:${numFont}px">${m.count}</span>` : '';
+
+  // Atmender Energie-Halo: Trending-Hotspots + „läuft jetzt" (Kategorie-Farbe).
+  // Negative, aus dem Venue-Namen abgeleitete Phase: die Halos atmen versetzt
+  // statt mechanisch im Gleichtakt.
+  const haloPhase = (m.venueName.length % 8) * 0.35;
+  const halo =
+    (hot || m.status === 'live') && !selected
+      ? `<span class="dots-halo" style="--halo:${m.color}59;animation-delay:-${haloPhase}s"></span>`
+      : '';
 
   // Ring-Priorität: ausgewählt (Lila) > läuft jetzt > startet bald.
   let ring = '';
@@ -152,11 +197,39 @@ export function buildMarkerIcon(
   }
 
   const html =
-    `<div class="dots-marker" style="width:${box}px;height:${box}px;">` +
+    `<div class="dots-marker" style="width:${box}px;height:${box}px;">${halo}` +
     `<div class="dots-dot${selected ? ' is-sel' : ''}" ` +
     `style="width:${dot}px;height:${dot}px;background:${m.color};box-shadow:${glow}${dim};">` +
     `${num}${ring}${label}</div>` +
     `</div>`;
 
+  return { html, size: box };
+}
+
+/** Felder, die ein Cluster-Marker zum Rendern braucht (strukturell = ClusterMarker). */
+export interface ClusterInput {
+  /** Summe der Events im Cluster (Zahl in der Bubble). */
+  count: number;
+  /** Mindestens ein Trending-Hotspot im Cluster → Glow-Halo. */
+  hot: boolean;
+}
+
+/**
+ * Cluster-Bubble für „mehrere Venues in dieser Gegend" (nur bei niedrigem Zoom).
+ * Dunkles Glas mit Lila-Kante — bewusst KEINE Kategorie-Farbe, damit sie klar
+ * als Aggregat lesbar ist. Tipp darauf zoomt hinein.
+ */
+export function buildClusterIcon(c: ClusterInput): MarkerIcon {
+  const d = 34 + Math.min(c.count, 14); // 36..48 px, wächst mit der Event-Zahl
+  const box = d + MARKER_HIT_PAD * 2;
+  const halo = c.hot
+    ? `<span class="dots-halo" style="--halo:#8B7BFF59;animation-delay:-${(c.count % 7) * 0.4}s"></span>`
+    : '';
+  const sub = d >= 40 ? '<span class="dots-cluster__u">Events</span>' : '';
+  const html =
+    `<div class="dots-marker" style="width:${box}px;height:${box}px;">${halo}` +
+    `<div class="dots-cluster" style="width:${d}px;height:${d}px">` +
+    `<span class="dots-cluster__n" style="font-size:${Math.round(d * 0.38)}px">${c.count}</span>${sub}</div>` +
+    `</div>`;
   return { html, size: box };
 }

@@ -112,6 +112,21 @@ export default function MapScreen() {
   });
   const events = useMemo(() => data ?? [], [data]);
 
+  // Event-Anzahl je Tag (nächste 7 Tage) → kleine Punkte im Kalender-Overlay.
+  const { data: weekData } = useQuery({
+    queryKey: ['events', 'week-daycounts'],
+    queryFn: () =>
+      listEvents({ time: NEXT_7_DAYS, categorySlug: null, quickFilters: [], sort: 'date', search: '' }),
+  });
+  const dayCounts = useMemo(() => {
+    const m: Record<string, number> = {};
+    (weekData ?? []).forEach((e) => {
+      const d = isoDay(new Date(e.startAt));
+      m[d] = (m[d] ?? 0) + 1;
+    });
+    return m;
+  }, [weekData]);
+
   // Basis (ohne Zeitstatus) für die Zeit-Chip-Counts; dann finaler Zeitfilter.
   const baseEvents = useMemo(
     () => applyBaseFilters(events, { categorySlugs, quick, timeStatus: null }, { now, liveContext, origin: location }),
@@ -298,7 +313,13 @@ export default function MapScreen() {
       )}
 
       {/* Kalender-Overlay */}
-      <DateOverlay visible={calendarOpen} value={time} onSelect={setTime} onClose={() => setCalendarOpen(false)} />
+      <DateOverlay
+        visible={calendarOpen}
+        value={time}
+        onSelect={setTime}
+        onClose={() => setCalendarOpen(false)}
+        dayCounts={dayCounts}
+      />
     </View>
   );
 }

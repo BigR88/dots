@@ -41,6 +41,19 @@ const VENUES: Record<string, Venue> = {
   festhalle: v('Festhalle', 'Ludwig-Erhard-Anlage 1', 8.6503, 50.1118),
   pulse: v('Pulse Club', 'Hanauer Landstraße 52', 8.7015, 50.1176),
   velvet: v('Velvet Rooftop', 'Eschersheimer Landstraße 14', 8.6802, 50.1205),
+  // Verteilung über die Stadtteile (Bahnhofsviertel, Nordend, Bornheim, Westend,
+  // Ostend, Alt-Sachsenhausen, Mainufer, Bockenheim) — Karte lebt in der Fläche.
+  jazzkeller: v('Jazzkeller Frankfurt', 'Kleine Bockenheimer Str. 18a', 8.677, 50.1152),
+  basement: v('Basement Klub', 'Münchener Straße 57', 8.6665, 50.1052),
+  klapperkahn: v('Klapperkahn', 'Klappergasse 3', 8.6905, 50.1032),
+  bergerwein: v('Weinstube Berger', 'Berger Straße 265', 8.7125, 50.1282),
+  oederweg: v('Bar Milano', 'Oeder Weg 57', 8.6835, 50.1245),
+  westendroof: v('Skyline Rooftop', 'Bockenheimer Landstraße 24', 8.664, 50.118),
+  mousonturm: v('Künstlerhaus Mousonturm', 'Waldschmidtstraße 4', 8.7025, 50.1168),
+  mainkai: v('Mainkai Ufer', 'Mainkai 20', 8.6845, 50.1085),
+  warehouse: v('Warehouse Ost', 'Lindleystraße 12', 8.712, 50.1078),
+  campuswest: v('Campus Westend Wiese', 'Theodor-W.-Adorno-Platz 1', 8.667, 50.127),
+  ponyhof: v('Ponyhof', 'Klingerstraße 8', 8.687, 50.1125),
 };
 
 function v(name: string, address: string, lon: number, lat: number): Venue {
@@ -168,7 +181,8 @@ const SEED_EVENTS: DotsEvent[] = SEED.map((s) => {
     organizer: null,
     sourceUrl: null,
     popularityScore: s.pop,
-    favoritesCount: 0,
+    // Plausible „interessiert"-Zahl aus der Beliebtheit abgeleitet (deterministisch).
+    favoritesCount: Math.round(s.pop * 2.2),
   };
 });
 
@@ -193,6 +207,8 @@ interface NowSeed {
   /** Dauer in Stunden. */
   durH: number;
   pop: number;
+  /** „Interessiert"-Zahl (Anzeige im Sheet); fehlt sie, wird sie aus pop abgeleitet. */
+  fav?: number;
 }
 
 const NOW_MS = Date.now();
@@ -229,15 +245,45 @@ function nowEvent(p: NowSeed): DotsEvent {
     organizer: null,
     sourceUrl: null,
     popularityScore: p.pop,
-    favoritesCount: 0,
+    favoritesCount: p.fav ?? Math.round(p.pop * 2.2),
   };
 }
 
+// Breite Live-Demo über ganz Frankfurt: „Jetzt" (läuft), „Bald" (< 2 h) und
+// „Später" (heute Abend) in allen Kategorien — die Karte zeigt IMMER eine
+// lebendige, farbige Stadt, egal wann man sie öffnet.
 const LIVE_DEMO: DotsEvent[] = [
-  nowEvent({ id: 'live1', title: 'Pulse — Techno Now', description: 'Treibender Techno, gerade jetzt auf dem Floor.', venue: 'pulse', category: 'clubbing', genre: 'Techno', vibes: ['Popular', 'Techno'], price: 'paid', min: 12, max: 15, age: 18, startMin: -40, durH: 6, pop: 90 }),
-  nowEvent({ id: 'live2', title: 'Gibson Live Floor', description: 'House-Allnighter — läuft bereits.', venue: 'gibson', category: 'clubbing', genre: 'House', vibes: ['House', 'Guestlist'], price: 'paid', min: 14, age: 18, startMin: -75, durH: 6, pop: 84 }),
-  nowEvent({ id: 'soon1', title: 'Velvet Rooftop Sundown', description: 'Sundowner mit melodischen Beats — startet gleich.', venue: 'velvet', category: 'rooftop', genre: 'Melodic House', vibes: ['Rooftop', 'Sunset'], price: 'paid', min: 10, age: 21, startMin: 45, durH: 4, pop: 72 }),
-  nowEvent({ id: 'soon2', title: 'Lavaña After Work', description: 'After-Work-Drinks über den Dächern — gleich los.', venue: 'lavana', category: 'rooftop', genre: 'Disco', vibes: ['Afterwork', 'Cocktails'], price: 'free', age: 21, startMin: 80, durH: 4, pop: 58 }),
+  // ── Läuft jetzt ────────────────────────────────────────────────────────────
+  nowEvent({ id: 'live1', title: 'Pulse — Techno Now', description: 'Treibender Techno, gerade jetzt auf dem Floor.', venue: 'pulse', category: 'clubbing', genre: 'Techno', vibes: ['Popular', 'Techno'], price: 'paid', min: 12, max: 15, age: 18, startMin: -40, durH: 6, pop: 90, fav: 214 }),
+  nowEvent({ id: 'live2', title: 'Gibson Live Floor', description: 'House-Allnighter — läuft bereits.', venue: 'gibson', category: 'clubbing', genre: 'House', vibes: ['House', 'Guestlist'], price: 'paid', min: 14, age: 18, startMin: -75, durH: 6, pop: 84, fav: 184 }),
+  nowEvent({ id: 'live3', title: 'Basement Techno Nacht', description: 'Roher Underground-Techno im Keller des Bahnhofsviertels.', venue: 'basement', category: 'clubbing', genre: 'Techno', vibes: ['Underground', 'Bahnhofsviertel'], price: 'paid', min: 10, max: 14, age: 18, startMin: -60, durH: 7, pop: 77, fav: 142 }),
+  nowEvent({ id: 'live4', title: 'Live Jazz Session', description: 'Intimes Quartett im legendären Kellergewölbe.', venue: 'jazzkeller', category: 'live_music', genre: 'Jazz', vibes: ['Live', 'Intim'], price: 'paid', min: 12, max: 15, startMin: -35, durH: 3.5, pop: 66, fav: 89 }),
+  nowEvent({ id: 'live5', title: 'Alt-Sachs Abend', description: 'Apfelwein, Schoppen und gute Laune in den Gassen.', venue: 'klapperkahn', category: 'bars', vibes: ['Apfelwein', 'Klassiker'], price: 'free', startMin: -50, durH: 5, pop: 48, fav: 54 }),
+  nowEvent({ id: 'live6', title: 'Mainufer Sunset Beats', description: 'Chill-House direkt am Wasser — die Stadt glüht.', venue: 'mainkai', category: 'open_air', genre: 'Chill House', vibes: ['Open Air', 'Riverside', 'Sunset'], price: 'free', startMin: -25, durH: 4, pop: 82, fav: 187 }),
+  nowEvent({ id: 'live7', title: 'Campus Sommerfest', description: 'Open-Air auf der Wiese: günstige Drinks, DJ, gute Stimmung.', venue: 'campuswest', category: 'student_party', genre: 'Charts', vibes: ['Students', 'Open Air'], price: 'paid', min: 3, max: 5, age: 18, startMin: -80, durH: 6, pop: 71, fav: 133 }),
+
+  // ── Startet bald (< 2 h) ───────────────────────────────────────────────────
+  nowEvent({ id: 'soon1', title: 'Velvet Rooftop Sundown', description: 'Sundowner mit melodischen Beats — startet gleich.', venue: 'velvet', category: 'rooftop', genre: 'Melodic House', vibes: ['Rooftop', 'Sunset'], price: 'paid', min: 10, age: 21, startMin: 45, durH: 4, pop: 72, fav: 97 }),
+  nowEvent({ id: 'soon2', title: 'Lavaña After Work', description: 'After-Work-Drinks über den Dächern — gleich los.', venue: 'lavana', category: 'rooftop', genre: 'Disco', vibes: ['Afterwork', 'Cocktails'], price: 'free', age: 21, startMin: 80, durH: 4, pop: 58, fav: 64 }),
+  nowEvent({ id: 'soon3', title: 'Bornheim Wine & Vibes', description: 'Naturwein und Soul-Platten auf der Berger Straße.', venue: 'bergerwein', category: 'bars', genre: 'Soul', vibes: ['Wine', 'Cozy'], price: 'free', startMin: 40, durH: 5, pop: 52, fav: 61 }),
+  nowEvent({ id: 'soon4', title: 'Aperitivo Nordend', description: 'Negroni, Spritz und Italo-Disco am Oeder Weg.', venue: 'oederweg', category: 'bars', genre: 'Italo Disco', vibes: ['Aperitivo', 'Afterwork'], price: 'free', startMin: 55, durH: 4, pop: 44, fav: 38 }),
+  nowEvent({ id: 'soon5', title: 'Skyline Rooftop Sundowner', description: 'Cocktails mit Blick auf die Bankentürme.', venue: 'westendroof', category: 'rooftop', genre: 'Melodic House', vibes: ['Rooftop', 'Skyline', 'Sunset'], price: 'paid', min: 12, age: 21, startMin: 70, durH: 5, pop: 79, fav: 168 }),
+  nowEvent({ id: 'soon6', title: 'Kleinmarkthalle Afterwork', description: 'Streetfood, Wein und Nachbarschaft mitten in der City.', venue: 'kleinmarkthalle', category: 'food_social', vibes: ['Food', 'Afterwork', 'Social'], price: 'free', startMin: 45, durH: 4, pop: 58, fav: 96 }),
+  nowEvent({ id: 'soon7', title: 'Secret Warehouse Rave', description: 'Location-Drop 1 h vorher — Industrial Techno im Osthafen.', venue: 'warehouse', category: 'special_event', genre: 'Industrial Techno', vibes: ['Secret', 'Rave'], price: 'paid', min: 15, max: 20, age: 18, startMin: 100, durH: 8, pop: 93, fav: 241 }),
+  nowEvent({ id: 'soon8', title: 'Mousonturm Late Night', description: 'Performance trifft DJ-Set im Künstlerhaus.', venue: 'mousonturm', category: 'culture', genre: 'Performance', vibes: ['Kultur', 'LateNight'], price: 'paid', min: 9, max: 14, startMin: 85, durH: 3, pop: 39, fav: 27 }),
+  nowEvent({ id: 'soon9', title: 'Ponyhof Indie Night', description: 'Indie-Dance und Garage im kleinsten Club der Stadt.', venue: 'ponyhof', category: 'clubbing', genre: 'Indie Dance', vibes: ['Indie', 'Klein & Fein'], price: 'paid', min: 8, max: 10, age: 18, startMin: 110, durH: 6, pop: 63, fav: 88 }),
+
+  // ── Später heute ───────────────────────────────────────────────────────────
+  nowEvent({ id: 'later1', title: 'Zoom Hip-Hop Night', description: 'Die größten Hip-Hop- und RnB-Anthems auf der Zeil.', venue: 'zoom', category: 'clubbing', genre: 'Hip-Hop', vibes: ['Hip-Hop', 'RnB'], price: 'paid', min: 12, max: 14, age: 18, startMin: 170, durH: 6, pop: 76, fav: 154 }),
+  nowEvent({ id: 'later2', title: 'Silbergold Warehouse Floor', description: 'Harter, schneller Sound bis in die Morgenstunden.', venue: 'silbergold', category: 'clubbing', genre: 'Hard Techno', vibes: ['Rave', 'Warehouse'], price: 'paid', min: 14, max: 16, age: 18, startMin: 200, durH: 7, pop: 85, fav: 176 }),
+  nowEvent({ id: 'later3', title: 'Orange Peel Soul Club', description: 'Live-Soul und Funk in samtiger Bar-Atmosphäre.', venue: 'orangepeel', category: 'live_music', genre: 'Soul', vibes: ['Live', 'Soul'], price: 'paid', min: 10, max: 12, startMin: 150, durH: 4, pop: 51, fav: 63 }),
+  nowEvent({ id: 'later4', title: 'Fortuna Late Rave', description: 'Indie-Electro im Bahnhofsviertel — schwitzig und laut.', venue: 'fortuna', category: 'clubbing', genre: 'Electro', vibes: ['Bahnhofsviertel', 'Electro'], price: 'paid', min: 8, age: 18, startMin: 240, durH: 6, pop: 69, fav: 101 }),
+  nowEvent({ id: 'later5', title: 'City Beach Nachtsession', description: 'Beach-House unterm Sternenhimmel mitten in der City.', venue: 'citybeach', category: 'open_air', genre: 'Beach House', vibes: ['Open Air', 'Beach'], price: 'paid', min: 5, startMin: 160, durH: 5, pop: 61, fav: 92 }),
+  nowEvent({ id: 'later6', title: 'Velvet Night Lounge', description: 'Späte Cocktails und Lounge-Sound über den Dächern.', venue: 'velvet', category: 'rooftop', genre: 'Lounge', vibes: ['Rooftop', 'Cocktails'], price: 'paid', min: 10, age: 21, startMin: 210, durH: 5, pop: 55, fav: 74 }),
+  nowEvent({ id: 'later7', title: 'Studihaus All-Nighter', description: '3 Floors, 1-€-Shots und volle Tanzflächen.', venue: 'studihaus', category: 'student_party', genre: 'Charts', vibes: ['Students', 'Cheap'], price: 'paid', min: 3, max: 6, age: 18, startMin: 230, durH: 7, pop: 74, fav: 121 }),
+  nowEvent({ id: 'later8', title: 'Lokalbahnhof Nachtcafé', description: 'Späte Drinks und gute Gespräche in Sachsenhausen.', venue: 'lokalbahnhof', category: 'bars', vibes: ['Cozy', 'LateDrinks'], price: 'free', startMin: 180, durH: 5, pop: 36, fav: 31 }),
+  nowEvent({ id: 'later9', title: 'Festhalle Lichtshow Special', description: 'Großes Special mit Headliner und Lichtshow.', venue: 'festhalle', category: 'special_event', genre: 'Pop', vibes: ['Special', 'Show'], price: 'paid', min: 29, max: 49, age: 16, startMin: 260, durH: 4, pop: 88, fav: 203 }),
+  nowEvent({ id: 'later10', title: 'Batschkapp: Indie Live Night', description: 'Zwei aufstrebende Indie-Acts an einem Abend.', venue: 'batschkapp', category: 'live_music', genre: 'Indie Rock', vibes: ['Live', 'Concert'], price: 'paid', min: 18, max: 24, startMin: 190, durH: 4, pop: 57, fav: 78 }),
 ];
 
 export const FIXTURE_EVENTS: DotsEvent[] = [...SEED_EVENTS, ...LIVE_DEMO];

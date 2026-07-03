@@ -11,6 +11,7 @@ import {
   StyleSheet,
   Text,
   View,
+  type ViewStyle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { DotsEvent, GeoPoint } from '@dots/shared';
@@ -149,7 +150,7 @@ function SingleEvent({
   return (
     <View style={styles.body}>
       <View style={styles.headerRow}>
-        <View style={[styles.thumb, { backgroundColor: color }]}>
+        <View style={[styles.thumb, { backgroundColor: color }, thumbGlow(color)]}>
           {event.coverImageUrl ? (
             <Image source={event.coverImageUrl} style={StyleSheet.absoluteFill} contentFit="cover" />
           ) : (
@@ -161,7 +162,7 @@ function SingleEvent({
           <View style={styles.badgeRow}>
             <EventTimeStatusBadge status={status} />
             <CategoryBadge category={event.category} />
-            <PopularityPill score={event.popularityScore} />
+            <PopularityPill score={event.popularityScore} interested={event.favoritesCount} />
           </View>
           <Text numberOfLines={2} style={[styles.title, { color: t.colors.textPrimary }]}>
             {event.title}
@@ -303,6 +304,13 @@ function MultiEvents({
 }
 
 /* ── Bausteine ──────────────────────────────────────────────────────────────*/
+// Weicher Glow ums Event-Thumbnail in der Kategorie-Farbe — bindet das Sheet
+// visuell an den getippten Marker.
+const thumbGlow = (c: string): ViewStyle =>
+  Platform.OS === 'web'
+    ? ({ boxShadow: `0 6px 20px ${c}59` } as unknown as ViewStyle)
+    : { shadowColor: c, shadowOpacity: 0.5, shadowRadius: 10, shadowOffset: { width: 0, height: 5 } };
+
 function Meta({ icon, text, accent }: { icon: keyof typeof Ionicons.glyphMap; text: string; accent?: boolean }) {
   const t = useTheme();
   const color = accent ? '#20C978' : t.colors.textSecondary;
@@ -314,10 +322,21 @@ function Meta({ icon, text, accent }: { icon: keyof typeof Ionicons.glyphMap; te
   );
 }
 
-function PopularityPill({ score }: { score: number }) {
+/**
+ * Sozialer Beweis am Event: „N interessiert" (sobald es nennenswert viele sind),
+ * sonst Beliebtheits-Label ab hohem Score. Eine Flamme, eine Aussage.
+ */
+function PopularityPill({ score, interested }: { score: number; interested: number }) {
   const t = useTheme();
-  if (score < 60) return null;
-  const label = score >= 80 ? 'Sehr beliebt' : 'Beliebt';
+  const label =
+    interested >= 20
+      ? `${interested} interessiert`
+      : score >= 80
+        ? 'Sehr beliebt'
+        : score >= 60
+          ? 'Beliebt'
+          : null;
+  if (!label) return null;
   return (
     <View style={[styles.pop, { backgroundColor: t.accent + '1E' }]}>
       <Ionicons name="flame" size={12} color={t.accent} />

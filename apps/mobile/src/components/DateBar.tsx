@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import { NEXT_7_DAYS, type TimeValue } from '@dots/shared';
 import { dayOptionFromIso, dayOptions, isIsoDay, shortDayLabel } from '@/lib/time';
 import { useTheme } from '@/theme/theme';
@@ -44,13 +44,21 @@ export function DateBar({
   const calendarActive = isRange || !!farDay;
   const calendarLabel = isRange ? '7 Tage' : farDay ? shortDayLabel(farDay) : null;
 
+  const dark = t.scheme === 'dark';
+  // Inaktive Pills: klar lesbar (Primärtext), dezente Fläche — kein „disabled"-
+  // Grau. Aktiv: sattes Marken-Lila mit weichem Glow.
+  const idleFill = glass
+    ? dark
+      ? 'rgba(255,255,255,0.08)'
+      : 'rgba(17,17,20,0.05)'
+    : t.colors.surface;
   const pillStyle = (active: boolean) => [
     styles.pill,
     glass && styles.pillGlass,
     active
-      ? { backgroundColor: t.accent, borderColor: t.accent }
+      ? [{ backgroundColor: t.accent, borderColor: t.accent }, activeGlow(t.accent)]
       : glass
-        ? { backgroundColor: 'transparent', borderColor: 'transparent' }
+        ? { backgroundColor: idleFill, borderColor: 'transparent' }
         : { backgroundColor: t.colors.surface, borderColor: t.colors.border },
   ];
 
@@ -62,7 +70,7 @@ export function DateBar({
           <Pressable key={opt.value} onPress={() => onChange(opt.value)} style={pillStyle(active)}>
             <Text
               numberOfLines={1}
-              style={[styles.label, { color: active ? '#fff' : t.colors.textSecondary }]}>
+              style={[styles.label, { color: active ? '#fff' : t.colors.textPrimary }]}>
               {shortDayLabel(opt)}
             </Text>
           </Pressable>
@@ -77,7 +85,7 @@ export function DateBar({
         <Ionicons
           name="calendar-outline"
           size={16}
-          color={calendarActive ? '#fff' : t.colors.textSecondary}
+          color={calendarActive ? '#fff' : t.colors.textPrimary}
         />
         {calendarLabel ? (
           <Text numberOfLines={1} style={[styles.label, { color: '#fff' }]}>
@@ -88,6 +96,18 @@ export function DateBar({
     </View>
   );
 }
+
+const activeGlow = (color: string): ViewStyle =>
+  Platform.select({
+    web: { boxShadow: `0 3px 12px ${color}59` } as unknown as ViewStyle,
+    default: {
+      shadowColor: color,
+      shadowOpacity: 0.35,
+      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 3 },
+      elevation: 4,
+    },
+  }) as ViewStyle;
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 7 },
