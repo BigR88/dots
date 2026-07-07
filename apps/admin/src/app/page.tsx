@@ -1,15 +1,43 @@
 import Link from 'next/link';
 import { deleteEventAction, resetDemoAction, setStatusAction } from '@/lib/actions';
+import { listCandidates } from '@/lib/candidates-store';
 import { formatPrice, formatStart, STATUS_LABELS } from '@/lib/format';
+import { listSources } from '@/lib/sources-store';
 import { listAllEvents, usingLiveBackend } from '@/lib/store';
 
 export const dynamic = 'force-dynamic';
 
 export default async function EventsPage() {
   const events = await listAllEvents();
+  // Kommandozentrale: Kennzahlen defensiv laden — die Startseite darf nie brechen.
+  const [pending, sources] = await Promise.all([
+    listCandidates('pending').catch(() => []),
+    listSources().catch(() => []),
+  ]);
+  const published = events.filter((e) => e.status === 'published').length;
+  const inReview = events.filter((e) => e.status === 'pending_review').length;
+  const activeSources = sources.filter((s) => s.active).length;
 
   return (
     <>
+      <div className="stat-grid">
+        <div className="stat-card">
+          <span className="stat-label">Events live</span>
+          <span className="stat-value">{published}</span>
+          <span className="stat-sub">{events.length} gesamt · {inReview} zur Prüfung</span>
+        </div>
+        <Link href="/candidates" className="stat-card stat-accent">
+          <span className="stat-label">KI-Kandidaten offen</span>
+          <span className="stat-value">{pending.length}</span>
+          <span className="stat-sub">{pending.length > 0 ? 'Jetzt reviewen →' : 'Alles erledigt ✓'}</span>
+        </Link>
+        <Link href="/sources" className="stat-card">
+          <span className="stat-label">Quellen aktiv</span>
+          <span className="stat-value">{activeSources}</span>
+          <span className="stat-sub">{sources.length} angelegt · Scans &amp; Läufe →</span>
+        </Link>
+      </div>
+
       <div className="page-head">
         <h1>Events</h1>
         <div className="toolbar">

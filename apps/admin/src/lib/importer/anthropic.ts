@@ -9,7 +9,11 @@ const apiKey = process.env.ANTHROPIC_API_KEY;
 
 export const anthropicConfigured = Boolean(apiKey);
 
-export const anthropic: Anthropic | null = apiKey ? new Anthropic({ apiKey }) : null;
+// maxRetries 4: transiente 429/529er im Cron überstehen (SDK macht Backoff).
+// timeout 60s (ms!): hängende Calls dürfen den Cron (maxDuration) nicht reißen.
+export const anthropic: Anthropic | null = apiKey
+  ? new Anthropic({ apiKey, maxRetries: 4, timeout: 60_000 })
+  : null;
 
 // Text-Captions sind günstig → Sonnet; Plakate brauchen starke Vision → Opus.
 // Per Env überschreibbar, falls man Kosten drücken will (z. B. Haiku für Text).

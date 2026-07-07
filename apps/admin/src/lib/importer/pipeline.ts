@@ -5,7 +5,7 @@ import {
   type SourceKind,
   type SourceType,
 } from '@dots/shared';
-import { extractEvents, type ExtractInput } from './extract';
+import { extractEvents, type ExtractInput, type ExtractUsage } from './extract';
 import { fetchWebsite } from './fetchers/website';
 import { findDuplicate, findDuplicateCandidate, insertCandidate } from '../candidates-store';
 import { listSources, markSourceChecked } from '../sources-store';
@@ -28,6 +28,24 @@ export interface IngestSummary {
   invalid: number;
   /** IDs der angelegten Kandidaten (für Upload→Kandidat-Verknüpfung). */
   candidateIds: string[];
+  /** true, wenn ein KI-Output bei max_tokens abgeschnitten wurde. */
+  truncated?: boolean;
+  /** Aufsummierter Token-Verbrauch (nur KI-Pfade). */
+  usage?: ExtractUsage;
+}
+
+/** USD je 1M Token [Input, Output] — für die Kosten-Zeile in den Run-Logs. */
+const MODEL_PRICES: Record<string, [number, number]> = {
+  'claude-sonnet-4-6': [3, 15],
+  'claude-opus-4-8': [5, 25],
+  'claude-haiku-4-5': [1, 5],
+};
+
+function usageCostLine(u: ExtractUsage): string {
+  const price = MODEL_PRICES[u.model];
+  const cost = price ? (u.inputTokens * price[0] + u.outputTokens * price[1]) / 1_000_000 : null;
+  const costTxt = cost != null ? ` ≈ $${cost.toFixed(4)}` : '';
+  return `KI: ${u.inputTokens} in / ${u.outputTokens} out (${u.model})${costTxt}`;
 }
 
 type InsertOutcome = { id: string } | { skip: 'past' | 'duplicate' };
@@ -64,7 +82,13 @@ async function insertOne(
   if (e.start_datetime && (await findDuplicateCandidate(e.title ?? '', e.start_datetime))) {
     return { skip: 'duplicate' };
   }
-  const dup = e.start_datetime ? await findDuplicate(e.title ?? '', e.start_datetime) : null;
+  // Duplikat-Hinweis ist BERATEND — ein Fehler hier darf den Import nie stoppen.
+  const dup = e.start_datetime
+    ? await findDuplicate(e.title ?? '', e.start_datetime).catch((err) => {
+        console.warn('[importer] Duplikatprüfung fehlgeschlagen:', err);
+        return null;
+      })
+    : null;
   const id = await insertCandidate({
     sourceId: ctx.sourceId ?? null,
     sourceKind: ctx.sourceKind ?? null,
@@ -82,7 +106,7 @@ async function insertOne(
 
 /** Manueller Import (Text/Plakat) → Kandidaten. */
 export async function ingest(input: ExtractInput, ctx: IngestContext = {}): Promise<IngestSummary> {
-  const { events, invalidCount } = await extractEvents(input);
+  const { events, invalidCount, truncated, usage } = await extractEvents(input);
   const candidateIds: string[] = [];
   let skippedPast = 0;
   let skippedDuplicate = 0;
@@ -99,6 +123,8 @@ export async function ingest(input: ExtractInput, ctx: IngestContext = {}): Prom
     skippedDuplicate,
     invalid: invalidCount,
     candidateIds,
+    truncated,
+    usage,
   };
 }
 
@@ -188,6 +214,9 @@ export async function ingestFromSource(source: EventSource): Promise<IngestSumma
         place(await insertOne(e, ctx, null));
       }
       // Roh-Texte (RSS/HTML) durch die KI-Extraktion schicken.
+      let totalIn = 0;
+      let totalOut = 0;
+      let usedModel: string | null = null;
       for (const t of outcome.texts) {
         const r = await extractEvents({
           text: t.text,
@@ -195,10 +224,22 @@ export async function ingestFromSource(source: EventSource): Promise<IngestSumma
           context: source.name ?? undefined,
         });
         invalid += r.invalidCount;
+        totalIn += r.usage.inputTokens;
+        totalOut += r.usage.outputTokens;
+        usedModel = r.usage.model;
+        if (r.truncated) {
+          logs.push('⚠ KI-Output abgeschnitten (max_tokens) — Events am Ende können fehlen.');
+        }
+        if (r.invalidReasons.length) {
+          logs.push(`Verworfen (Schema): ${r.invalidReasons.join('; ')}`);
+        }
         for (const e of r.events) {
           extracted++;
           place(await insertOne(e, ctx, t.text));
         }
+      }
+      if (usedModel) {
+        logs.push(usageCostLine({ inputTokens: totalIn, outputTokens: totalOut, model: usedModel }));
       }
     }
 

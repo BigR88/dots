@@ -21,19 +21,27 @@ export interface FetchOutcome {
   logs: string[];
 }
 
-const MAX_TEXT = 8000;
+const MAX_TEXT = 20000;
 
+/**
+ * HTML → Text mit erhaltener BLOCKSTRUKTUR (Zeilenumbrüche an Block-Enden).
+ * Vorher wurde alles zu einer Wurst ohne Absätze — die KI konnte einzelne
+ * Events auf Programmseiten schlechter voneinander trennen.
+ */
 function htmlToText(html: string): string {
   return html
     .replace(/<script[\s\S]*?<\/script>/gi, ' ')
     .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(p|div|li|h[1-6]|tr|article|section)>/gi, '\n')
     .replace(/<[^>]+>/g, ' ')
     .replace(/&amp;/g, '&')
     .replace(/&nbsp;/g, ' ')
     .replace(/&[a-z#0-9]+;/gi, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, MAX_TEXT);
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\s*\n\s*/g, '\n')
+    .replace(/\n{2,}/g, '\n')
+    .trim();
 }
 
 export async function fetchWebsite(url: string): Promise<FetchOutcome> {
@@ -62,13 +70,30 @@ export async function fetchWebsite(url: string): Promise<FetchOutcome> {
     return { structured: [], texts, logs };
   }
 
-  // 4) HTML: zuerst JSON-LD, sonst sichtbarer Text
+  // 4) HTML: zuerst JSON-LD, sonst (oder zusätzlich) sichtbarer Text
   const structured = extractJsonLdEvents(body, url);
-  if (structured.length > 0) {
-    logs.push(`JSON-LD schema.org/Event → ${structured.length} Event(s)`);
-    return { structured, texts: [], logs };
+  const fullText = htmlToText(body);
+  if (fullText.length > MAX_TEXT) {
+    logs.push(
+      `Seitentext von ${fullText.length} auf ${MAX_TEXT} Zeichen gekürzt — Events am Seitenende können fehlen.`,
+    );
   }
-  const text = htmlToText(body);
+  const text = fullText.slice(0, MAX_TEXT);
+
+  if (structured.length > 0) {
+    // Kurzschluss nur, wenn das JSON-LD plausibel VOLLSTÄNDIG ist. Viele Seiten
+    // annotieren nur 1-2 Highlight-Events — dann verlöre der Kurzschluss den
+    // Rest des Programms. Der Queue-Dedup fängt Doppel-Erfassung ab.
+    if (structured.length >= 3 || text.length <= 2000) {
+      logs.push(`JSON-LD schema.org/Event → ${structured.length} Event(s)`);
+      return { structured, texts: [], logs };
+    }
+    logs.push(
+      `JSON-LD → ${structured.length} Event(s), wirkt unvollständig (langer Seitentext) — Text geht ZUSÄTZLICH an die KI-Extraktion`,
+    );
+    return { structured, texts: [{ text, sourceUrl: url }], logs };
+  }
+
   if (!text) {
     logs.push('Kein strukturiertes Markup und kein lesbarer Text gefunden');
     return { structured: [], texts: [], logs };

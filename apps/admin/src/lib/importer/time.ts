@@ -11,6 +11,36 @@ export function berlinToday(): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: BERLIN }).format(new Date());
 }
 
+export interface DateTableRow {
+  /** Deutscher Wochentag, z. B. "Freitag". */
+  weekday: string;
+  /** YYYY-MM-DD (Berlin). */
+  date: string;
+  /** UTC-Offset an diesem Tag, z. B. "+02:00" (Sommer) / "+01:00" (Winter). */
+  offset: string;
+}
+
+/**
+ * Anker-Tabelle "Wochentag = Datum" für die nächsten `days` Tage (Europe/Berlin).
+ * Damit löst die KI-Extraktion Wochentags-/relative Angaben ("diesen Freitag")
+ * per Nachschlagen statt per Eigenrechnung auf — der häufigste Fehlerherd.
+ * `fromDate` (YYYY-MM-DD) verankert die Tabelle für Tests deterministisch.
+ */
+export function berlinDateTable(days = 14, fromDate?: string): DateTableRow[] {
+  const wd = new Intl.DateTimeFormat('de-DE', { timeZone: BERLIN, weekday: 'long' });
+  const iso = new Intl.DateTimeFormat('en-CA', { timeZone: BERLIN });
+  const off = new Intl.DateTimeFormat('en-US', { timeZone: BERLIN, timeZoneName: 'longOffset' });
+  // Basis mittags (UTC) → DST-Umstellungen verschieben den Kalendertag nicht.
+  const baseMs = fromDate ? Date.parse(`${fromDate}T12:00:00Z`) : Date.now();
+  const out: DateTableRow[] = [];
+  for (let i = 0; i < days; i++) {
+    const d = new Date(baseMs + i * 86_400_000);
+    const zone = off.formatToParts(d).find((p) => p.type === 'timeZoneName')?.value ?? 'GMT+01:00';
+    out.push({ weekday: wd.format(d), date: iso.format(d), offset: zone.replace('GMT', '') || '+01:00' });
+  }
+  return out;
+}
+
 /** Offset (ms) der Zeitzone zu UTC für einen konkreten Instant. */
 function tzOffsetMs(instant: Date, timeZone: string): number {
   const dtf = new Intl.DateTimeFormat('en-US', {

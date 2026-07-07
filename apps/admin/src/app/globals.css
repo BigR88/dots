@@ -1,16 +1,23 @@
-/* dots Admin — Farbwerte aus packages/shared/src/tokens.ts (light scheme). */
+/* dots Studio — Design-System. Farbwerte aus packages/shared/src/tokens.ts,
+   Look angelehnt an die Mobile-App: knallige Gradient-Headlines, ruhige
+   Karten-Flächen, EIN Lila-Akzent (#6C5CFF) mit Magenta-Verlauf. */
 :root {
-  --accent: #6c5ce7;
-  --accent-muted: #8b7ef0;
-  --bg: #ffffff;
-  --surface: #f5f5f7;
-  --surface-elevated: #ededf0;
-  --border: #e2e2e8;
-  --text: #0e0e12;
-  --text-secondary: #60646c;
-  --text-muted: #9a9aa5;
-  --danger: #d64545;
-  --ok: #2e9e6b;
+  --accent: #6c5cff;
+  --accent-muted: #8b7bff;
+  --accent-2: #c13cf0;
+  --grad: linear-gradient(100deg, #6c5cff, #c13cf0);
+  --bg: #f7f7f9;
+  --surface: #ffffff;
+  --surface-elevated: #efeff4;
+  --border: #e7e7ee;
+  --text: #111114;
+  --text-secondary: #6b7280;
+  --text-muted: #9aa1ae;
+  --danger: #e5484d;
+  --ok: #20a06b;
+  --shadow-sm: 0 1px 2px rgba(17, 17, 20, 0.05);
+  --shadow-md: 0 8px 24px rgba(17, 24, 39, 0.07);
+  --radius: 14px;
 }
 
 * {
@@ -24,6 +31,7 @@ body {
   background: var(--bg);
   color: var(--text);
   font-size: 15px;
+  -webkit-font-smoothing: antialiased;
 }
 
 a {
@@ -38,19 +46,50 @@ code {
   font-size: 12px;
 }
 
+/* ── Topbar: sticky, leicht durchscheinend ─────────────────────────────────── */
 .topbar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 28px;
+  padding: 12px 28px;
   border-bottom: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.86);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
 }
 
 .brand {
-  font-size: 22px;
+  font-size: 21px;
   font-weight: 900;
   letter-spacing: -0.5px;
   color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.brand-mark {
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  background: var(--grad);
+  display: inline-block;
+  position: relative;
+  box-shadow: 0 4px 10px rgba(108, 92, 255, 0.35);
+}
+
+.brand-mark::after {
+  content: '';
+  position: absolute;
+  top: 5px;
+  left: 7px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #fff;
 }
 
 .brand-dot {
@@ -59,7 +98,7 @@ code {
 
 .brand-suffix {
   font-weight: 600;
-  font-size: 15px;
+  font-size: 14px;
   color: var(--text-secondary);
   margin-left: 2px;
 }
@@ -67,24 +106,33 @@ code {
 .nav {
   display: flex;
   align-items: center;
-  gap: 18px;
+  gap: 16px;
 }
 
 .nav a {
   color: var(--text-secondary);
   font-weight: 600;
+  font-size: 14px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.nav a:hover {
+  color: var(--text);
+  background: var(--surface-elevated);
 }
 
 .demo-banner {
-  background: rgba(108, 92, 231, 0.08);
+  background: rgba(108, 92, 255, 0.08);
   color: var(--accent);
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 500;
-  padding: 8px 28px;
+  padding: 7px 28px;
 }
 
 .demo-banner.live {
-  background: rgba(46, 158, 107, 0.1);
+  background: rgba(32, 160, 107, 0.09);
   color: var(--ok);
 }
 
@@ -101,10 +149,16 @@ code {
   margin-bottom: 18px;
 }
 
+/* Knallige Gradient-Headline — wie in der App */
 .page-head h1 {
-  font-size: 24px;
-  font-weight: 800;
+  font-size: 28px;
+  font-weight: 900;
+  letter-spacing: -0.8px;
   margin: 0;
+  background: var(--grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 .page-head .meta {
@@ -112,31 +166,42 @@ code {
   font-size: 13px;
 }
 
-/* Tabelle */
+/* ── Tabellen als Karten ───────────────────────────────────────────────────── */
 table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
 }
 
 th {
   text-align: left;
-  font-size: 12px;
+  font-size: 11.5px;
   text-transform: uppercase;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.5px;
   color: var(--text-muted);
   font-weight: 700;
-  padding: 8px 10px;
+  padding: 10px 12px;
+  background: #fafafc;
   border-bottom: 1px solid var(--border);
 }
 
 td {
-  padding: 10px;
+  padding: 11px 12px;
   border-bottom: 1px solid var(--border);
   vertical-align: middle;
 }
 
+tr:last-child td {
+  border-bottom: none;
+}
+
 tr:hover td {
-  background: var(--surface);
+  background: #fafaff;
 }
 
 .event-title {
@@ -178,7 +243,7 @@ tr:hover td {
 }
 
 .pill-published {
-  background: rgba(46, 158, 107, 0.12);
+  background: rgba(32, 160, 107, 0.12);
   color: var(--ok);
 }
 
@@ -198,32 +263,39 @@ tr:hover td {
   color: var(--text-muted);
 }
 
-/* Buttons */
+/* ── Buttons ───────────────────────────────────────────────────────────────── */
 .btn {
   display: inline-block;
   border: 1px solid var(--border);
-  background: var(--bg);
+  background: var(--surface);
   color: var(--text);
   font-size: 13px;
   font-weight: 600;
-  padding: 6px 12px;
-  border-radius: 8px;
+  padding: 7px 13px;
+  border-radius: 10px;
   cursor: pointer;
   font-family: inherit;
+  transition: background 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
 }
 
 .btn:hover {
-  background: var(--surface);
+  background: var(--surface-elevated);
+}
+
+.btn:active {
+  transform: scale(0.97);
 }
 
 .btn-primary {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: var(--grad);
+  border: none;
   color: #fff !important;
+  box-shadow: 0 6px 16px rgba(108, 92, 255, 0.3);
 }
 
 .btn-primary:hover {
-  background: var(--accent-muted);
+  filter: brightness(1.06);
+  background: var(--grad);
 }
 
 .btn-danger {
@@ -233,6 +305,7 @@ tr:hover td {
 .btn-sm {
   font-size: 12.5px;
   padding: 4px 10px;
+  border-radius: 8px;
 }
 
 .row-actions {
@@ -246,7 +319,7 @@ tr:hover td {
   display: inline;
 }
 
-/* Formular */
+/* ── Formulare ─────────────────────────────────────────────────────────────── */
 .form {
   max-width: 640px;
   display: grid;
@@ -275,16 +348,16 @@ tr:hover td {
 .field textarea {
   font: inherit;
   color: var(--text);
-  background: var(--bg);
+  background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 10px;
   padding: 9px 12px;
 }
 
 .field input:focus,
 .field select:focus,
 .field textarea:focus {
-  outline: 2px solid var(--accent-muted);
+  outline: 2px solid rgba(108, 92, 255, 0.35);
   outline-offset: 0;
   border-color: var(--accent);
 }
@@ -316,6 +389,50 @@ tr:hover td {
   color: var(--text-muted);
 }
 
+/* ── Dashboard-Statistiken ─────────────────────────────────────────────────── */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  box-shadow: var(--shadow-sm);
+  display: grid;
+  gap: 4px;
+}
+
+.stat-card .stat-label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text-muted);
+}
+
+.stat-card .stat-value {
+  font-size: 26px;
+  font-weight: 900;
+  letter-spacing: -0.5px;
+}
+
+.stat-card .stat-sub {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+
+.stat-card.stat-accent .stat-value {
+  background: var(--grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
 /* ── KI-Import ─────────────────────────────────────────────────────────────── */
 .section-title {
   font-size: 16px;
@@ -324,9 +441,9 @@ tr:hover td {
 }
 
 .notice {
-  background: rgba(46, 158, 107, 0.1);
+  background: rgba(32, 160, 107, 0.09);
   color: var(--ok);
-  border: 1px solid rgba(46, 158, 107, 0.25);
+  border: 1px solid rgba(32, 160, 107, 0.25);
   border-radius: 10px;
   padding: 10px 14px;
   font-size: 13.5px;
@@ -335,9 +452,9 @@ tr:hover td {
 }
 
 .notice.err {
-  background: rgba(214, 69, 69, 0.08);
+  background: rgba(229, 72, 77, 0.07);
   color: var(--danger);
-  border-color: rgba(214, 69, 69, 0.25);
+  border-color: rgba(229, 72, 77, 0.25);
 }
 
 .notice code {
@@ -352,12 +469,13 @@ tr:hover td {
 
 .card {
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: var(--radius);
   padding: 18px;
-  background: var(--bg);
+  background: var(--surface);
   display: grid;
   gap: 12px;
   align-content: start;
+  box-shadow: var(--shadow-sm);
 }
 
 .card h3 {
@@ -379,7 +497,7 @@ tr:hover td {
 
 /* Konfidenz-Pills */
 .pill.conf-high {
-  background: rgba(46, 158, 107, 0.14);
+  background: rgba(32, 160, 107, 0.14);
   color: var(--ok);
 }
 .pill.conf-mid {
@@ -387,7 +505,7 @@ tr:hover td {
   color: #b27b16;
 }
 .pill.conf-low {
-  background: rgba(214, 69, 69, 0.12);
+  background: rgba(229, 72, 77, 0.1);
   color: var(--danger);
 }
 
@@ -406,8 +524,12 @@ tr:hover td {
   color: #b27b16;
 }
 .tag-dup {
-  background: rgba(214, 69, 69, 0.12);
+  background: rgba(229, 72, 77, 0.1);
   color: var(--danger);
+}
+.tag-ok {
+  background: rgba(32, 160, 107, 0.14);
+  color: var(--ok);
 }
 
 /* Review-Detail */
@@ -465,9 +587,9 @@ tr:hover td {
   }
 }
 
-/* Login */
+/* ── Login ─────────────────────────────────────────────────────────────────── */
 .login-wrap {
-  min-height: 70vh;
+  min-height: 80vh;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -475,8 +597,130 @@ tr:hover td {
 .login-card {
   width: 100%;
   max-width: 380px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 28px;
+  box-shadow: var(--shadow-md);
 }
 .login-title {
   margin: 0 0 4px;
-  font-size: 24px;
+  font-size: 26px;
+  font-weight: 900;
+  letter-spacing: -0.6px;
+  background: var(--grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ── Anleitung ─────────────────────────────────────────────────────────────── */
+.guide {
+  max-width: 760px;
+  line-height: 1.6;
+}
+
+.guide h2 {
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: -0.4px;
+  margin: 36px 0 10px;
+  background: var(--grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.guide h3 {
+  font-size: 15.5px;
+  font-weight: 800;
+  margin: 22px 0 6px;
+}
+
+.guide p,
+.guide li {
+  color: var(--text-secondary);
+  font-size: 14.5px;
+}
+
+.guide li {
+  margin-bottom: 6px;
+}
+
+.guide strong {
+  color: var(--text);
+}
+
+.guide .lead {
+  font-size: 16px;
+  color: var(--text-secondary);
+}
+
+.flow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin: 14px 0;
+  box-shadow: var(--shadow-sm);
+}
+
+.flow .flow-step {
+  font-size: 13px;
+  font-weight: 700;
+  background: var(--surface-elevated);
+  border-radius: 999px;
+  padding: 5px 12px;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.flow .flow-step.hot {
+  background: var(--grad);
+  color: #fff;
+}
+
+.flow .flow-arrow {
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.callout {
+  background: rgba(108, 92, 255, 0.06);
+  border: 1px solid rgba(108, 92, 255, 0.2);
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin: 12px 0;
+  font-size: 13.5px;
+  color: var(--text-secondary);
+}
+
+.callout strong {
+  color: var(--accent);
+}
+
+.callout.warn {
+  background: rgba(240, 173, 78, 0.08);
+  border-color: rgba(240, 173, 78, 0.3);
+}
+
+.callout.warn strong {
+  color: #b27b16;
+}
+
+kbd {
+  display: inline-block;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: 6px;
+  padding: 1px 7px;
+  color: var(--text-secondary);
 }

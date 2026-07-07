@@ -13,9 +13,12 @@ export default async function LoginPage({
     <div className="login-wrap">
       <div className="card login-card">
         <h1 className="login-title">
-          dots<span className="brand-dot">.</span> <span className="brand-suffix">Admin</span>
+          dots<span className="brand-dot">.</span> <span className="brand-suffix">Studio</span>
         </h1>
-        <p className="hint">Bitte mit dem Admin-Passwort anmelden.</p>
+        <p className="hint">
+          Bitte mit dem Admin-Passwort anmelden (steht in <code>apps/admin/.env.local</code>,
+          Zeile <code>ADMIN_PASSWORD</code>).
+        </p>
         {hasError && <div className="notice err">Falsches Passwort.</div>}
         <form method="post" action="/api/login" className="form">
           {next && <input type="hidden" name="next" value={next} />}

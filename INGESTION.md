@@ -103,3 +103,33 @@ Auslösbar von: Vercel Cron, GitHub Actions, n8n/Make, system-cron, oder Supabas
 - robots.txt + Rate-Limits respektieren, eigener User-Agent, kein Link-Crawling.
 - **Menschliches Review Pflicht** (kein Auto-Publish); unsicheres Datum ⇒ `needs_review`.
 - Vor Launch anwaltliche Prüfung (DSGVO Art. 14, Venue-Opt-out).
+
+## Optimierungen (2026-06-29, Fable-5-Pass)
+
+Nach einem 3-Linsen-Audit (Extraktionsqualität, Datenhygiene, Betrieb) umgesetzt:
+
+1. **Datums-Anker:** Der System-Prompt enthält jetzt eine 14-Tage-Kalendertabelle
+   (`berlinDateTable` in `importer/time.ts`) — Wochentage werden nachgeschlagen,
+   nie gerechnet. Dazu Übernacht-Regel (23–05 Uhr ⇒ Ende am Folgetag) und ein
+   dynamisches Few-Shot-Beispiel. Verifiziert: „diesen Freitag" → korrektes Datum.
+2. **Kein stiller Verlust:** `max_tokens` 4096→8192; `stop_reason == max_tokens`
+   wird als Warnung in Run-Logs/Import-Meldung gemeldet (`truncated`).
+3. **Fetcher:** `htmlToText` erhält Blockstruktur (Zeilenumbrüche), `MAX_TEXT`
+   8000→20000 mit Kürzungs-Log; JSON-LD-Kurzschluss nur noch bei plausibel
+   vollständigem Markup (≥3 Events oder kurzer Seite), sonst Text ZUSÄTZLICH zur KI.
+4. **Kosten-Telemetrie:** Jeder Scan loggt `KI: <in> in / <out> out (<modell>) ≈ $…`
+   plus Zod-Verwurfsgründe in `event_ingestion_runs.logs`.
+5. **SDK-Härtung:** `maxRetries: 4`, `timeout: 60 s` (Cron-sicher).
+6. **Dedup/Matching:** `importer/normalize.ts` — Umlaut-/Emoji-/Datumspräfix-feste
+   Titel-Normalisierung (Queue-Dedup ±12 h statt ±2 h) + Token-basiertes
+   Venue-Matching (Demo-Promote, Score ≥ 0.8).
+7. **findDuplicate ohne RPC:** Direkte `events`-Query (±3 Tage) statt
+   `find_duplicate_events` — der RPC aus Migration 0006 lag nie in der Live-DB
+   und brach Importe ab. Duplikatprüfung ist jetzt außerdem beratend (Fehler
+   stoppen den Import nicht mehr).
+8. **Preis-Parsing:** €-verankerte Beträge (auch Ranges „10–15 €", „VVK 12 / AK 15")
+   → `priceMin`/`priceMax`; Uhrzeiten/„18+" werden nicht mehr als Preis gelesen (TS-Pfad).
+
+Bewusst verworfen: Prompt-Caching (Prompt unter Cache-Minimum), Batch API
+(asynchron, unpassend für interaktive Scans), Opus für Text (Datumsfehler waren
+Kontext-, kein Fähigkeitsproblem — via `DOTS_IMPORT_TEXT_MODEL` jederzeit testbar).

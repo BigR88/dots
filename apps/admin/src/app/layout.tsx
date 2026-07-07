@@ -6,8 +6,8 @@ import { usingLiveBackend } from '@/lib/store';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'dots Admin',
-  description: 'Events für Frankfurt pflegen',
+  title: 'dots Studio',
+  description: 'Events für Frankfurt pflegen — KI-Import, Review & Verwaltung',
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
@@ -21,13 +21,15 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <>
             <header className="topbar">
               <Link href="/" className="brand">
+                <span className="brand-mark" aria-hidden />
                 dots<span className="brand-dot">.</span>{' '}
-                <span className="brand-suffix">Admin</span>
+                <span className="brand-suffix">Studio</span>
               </Link>
               <nav className="nav">
                 <Link href="/">Events</Link>
                 <Link href="/candidates">KI-Import</Link>
                 <Link href="/sources">Quellen</Link>
+                <Link href="/anleitung">Anleitung</Link>
                 <Link href="/events/new" className="btn btn-primary">
                   + Neues Event
                 </Link>

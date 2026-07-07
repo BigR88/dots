@@ -14,6 +14,7 @@ import { isSupabaseConfigured, supabase } from './supabase';
 import { getVenues } from './refdata';
 import { saveEvent } from './store';
 import { berlinWallToUtcIso } from './importer/time';
+import { normTitle, venueMatchScore } from './importer/normalize';
 
 /**
  * Review-Queue der KI-Kandidaten. Zwei Backends hinter einer API (wie store.ts):
@@ -157,14 +158,11 @@ export async function insertCandidate(c: NewCandidate): Promise<string> {
   return id;
 }
 
-function normTitle(s: string | null | undefined): string {
-  return (s ?? '').toLowerCase().replace(/\s+/g, ' ').trim();
-}
-
 /**
  * Bereits in der Queue (pending/approved) liegender Kandidat zum selben Event?
  * Verhindert, dass Re-Scans denselben Event mehrfach einreihen. Vergleicht
- * normalisierten Titel + Startzeit (±2 h).
+ * normalisierten Titel (Umlaute/Emojis/Datums-Präfixe neutralisiert) +
+ * Startzeit ±12 h (fängt "Einlass vs. Beginn" und Mitternachts-Grenzfälle).
  */
 export async function findDuplicateCandidate(title: string, startIso: string): Promise<string | null> {
   const nt = normTitle(title);
@@ -173,7 +171,7 @@ export async function findDuplicateCandidate(title: string, startIso: string): P
   const sameStart = (other: string | null | undefined): boolean => {
     if (!other) return false;
     const t = new Date(other).getTime();
-    return !Number.isNaN(t) && !Number.isNaN(startMs) && Math.abs(t - startMs) <= 2 * 60 * 60 * 1000;
+    return !Number.isNaN(t) && !Number.isNaN(startMs) && Math.abs(t - startMs) <= 12 * 60 * 60 * 1000;
   };
   if (isSupabaseConfigured && supabase) {
     const { data, error } = await supabase
@@ -204,16 +202,33 @@ export async function findDuplicateCandidate(title: string, startIso: string): P
   return null;
 }
 
-/** Liefert die ID eines möglichen Duplikat-Events (oder null). */
+/**
+ * Liefert die ID eines möglichen Duplikat-EVENTS (oder null). Direkte Abfrage
+ * statt RPC: unabhängig davon, welche Migrationen in der DB liegen (der
+ * find_duplicate_events-RPC aus 0006 fehlte live → Import brach ab), und
+ * nutzt dieselbe Titel-Normalisierung wie der Queue-Dedup.
+ */
 export async function findDuplicate(title: string, startIso: string): Promise<string | null> {
   if (isSupabaseConfigured && supabase) {
-    const { data, error } = await supabase.rpc('find_duplicate_events', {
-      in_title: title,
-      in_start_at: startIso,
-    });
+    const nt = normTitle(title);
+    const startMs = new Date(startIso).getTime();
+    if (!nt || Number.isNaN(startMs)) return null;
+    const windowMs = 3 * 24 * 60 * 60 * 1000; // ±3 Tage (wie der alte RPC)
+    const { data, error } = await supabase
+      .from('events')
+      .select('id, title')
+      .gte('start_at', new Date(startMs - windowMs).toISOString())
+      .lte('start_at', new Date(startMs + windowMs).toISOString())
+      .limit(300);
     if (error) throw error;
-    const first = Array.isArray(data) ? data[0] : null;
-    return first?.id ?? null;
+    const rows = (data ?? []) as Array<{ id: string; title: string | null }>;
+    for (const r of rows) if (normTitle(r.title) === nt) return r.id;
+    // Weiche Stufe: einer enthält den anderen ("Techno Night" ⊂ "Techno Night XXL").
+    for (const r of rows) {
+      const o = normTitle(r.title);
+      if (o && (o.includes(nt) || nt.includes(o))) return r.id;
+    }
+    return null;
   }
   return null; // Demo: keine Duplikatprüfung gegen den getrennten Events-Store.
 }
@@ -273,11 +288,22 @@ export async function promoteCandidate(
   const endAt = endDate && !Number.isNaN(endDate.getTime()) ? endDate.toISOString() : null;
 
   const venues = await getVenues();
-  const venueName = ex.venue_name?.toLowerCase().trim();
-  const venue =
-    venues.find((v) => v.id === ex.venue_id) ??
-    venues.find((v) => venueName && v.name.toLowerCase().includes(venueName)) ??
-    null;
+  const venueName = ex.venue_name?.trim();
+  // Bester Token-Match statt Substring: "Gibson Club Frankfurt" → "Gibson",
+  // aber "Bar" matcht NICHT mehr fälschlich "Barock".
+  let matched = null;
+  if (venueName) {
+    let best = 0;
+    for (const v of venues) {
+      const score = venueMatchScore(venueName, v.name);
+      if (score > best) {
+        best = score;
+        matched = v;
+      }
+    }
+    if (best < 0.8) matched = null;
+  }
+  const venue = venues.find((v) => v.id === ex.venue_id) ?? matched ?? null;
 
   const price = parsePrice(ex.price_text);
   const event: DotsEvent = {
@@ -298,7 +324,7 @@ export async function promoteCandidate(
     vibeTags: [],
     priceType: price.priceType,
     priceMin: price.priceMin,
-    priceMax: null,
+    priceMax: price.priceMax,
     currency: 'EUR',
     ageRestriction: ex.min_age ? Number(ex.min_age.replace(/[^0-9]/g, '')) || null : null,
     coverImageUrl: null,
@@ -325,12 +351,7 @@ function categoryFor(slug: string | null): Category | null {
   return { id: slug as string, slug: slug as string, name: d.name, icon: d.icon, color: d.color, sortOrder: 0, isActive: true };
 }
 
-function parsePrice(price: string | null): { priceType: PriceType; priceMin: number | null } {
-  const p = (price || '').toLowerCase();
-  if (/free|frei|kostenlos|gratis|umsonst/.test(p)) return { priceType: 'free', priceMin: null };
-  const m = price?.match(/[0-9][0-9.,]*/);
-  if (!m) return { priceType: price?.trim() ? 'paid' : 'unknown', priceMin: null };
-  const raw = m[0];
+function parseNum(raw: string): number | null {
   let numeric: string;
   if (raw.includes(',')) {
     numeric = raw.replace(/\./g, '').replace(',', '.'); // dt.: '.' Tausender, ',' Dezimal
@@ -340,8 +361,43 @@ function parsePrice(price: string | null): { priceType: PriceType; priceMin: num
     numeric = raw; // '.' als Dezimaltrenner belassen: 10.50 / 12
   }
   const n = Number(numeric);
-  if (!Number.isFinite(n) || n < 0 || n > 999999.99) return { priceType: 'paid', priceMin: null };
-  return { priceType: 'paid', priceMin: n };
+  return Number.isFinite(n) && n >= 0 && n <= 999999.99 ? n : null;
+}
+
+/**
+ * Preis aus Freitext. €-verankerte Beträge haben Vorrang ("ab 22 Uhr: 10 €"
+ * → 10, nicht 22); mehrere Beträge ("VVK 12 / AK 15 €", "10–15 €") ergeben
+ * min/max. Fallback: erste Zahl, aber Uhrzeiten und "18+" ausgeklammert.
+ */
+function parsePrice(price: string | null): {
+  priceType: PriceType;
+  priceMin: number | null;
+  priceMax: number | null;
+} {
+  const p = (price || '').toLowerCase();
+  if (/free|frei|kostenlos|gratis|umsonst/.test(p)) {
+    return { priceType: 'free', priceMin: null, priceMax: null };
+  }
+  if (!price?.trim()) return { priceType: 'unknown', priceMin: null, priceMax: null };
+
+  // "10–15 €" → "10 € 15 €", damit beide Beträge verankert sind.
+  const expanded = price.replace(/([0-9]+(?:[.,][0-9]{1,2})?)\s*[–—-]\s*(?=[0-9])/g, '$1 € ');
+  const anchored = [
+    ...expanded.matchAll(/([0-9]+(?:[.,][0-9]{1,2})?)\s*(?:€|eur(?:o)?\b)|€\s*([0-9]+(?:[.,][0-9]{1,2})?)/gi),
+  ]
+    .map((m) => parseNum(m[1] ?? m[2]))
+    .filter((n): n is number => n != null);
+  if (anchored.length) {
+    const min = Math.min(...anchored);
+    const max = Math.max(...anchored);
+    return { priceType: 'paid', priceMin: min, priceMax: max > min ? max : null };
+  }
+
+  // Fallback ohne €-Anker: Uhrzeiten ("22 Uhr", "ab 23h") und "18+" entfernen.
+  const cleaned = price.replace(/\b\d{1,2}\s*(?:uhr|h)\b/gi, ' ').replace(/\b\d{1,2}\s*\+/g, ' ');
+  const m = cleaned.match(/[0-9][0-9.,]*/);
+  const n = m ? parseNum(m[0]) : null;
+  return { priceType: 'paid', priceMin: n, priceMax: null };
 }
 
 /** Nur http(s)-URLs zulassen (kein javascript:/data: in die App). */

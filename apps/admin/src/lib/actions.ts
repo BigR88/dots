@@ -24,7 +24,19 @@ function str(fd: FormData, key: string): string {
 }
 
 function errMsg(e: unknown): string {
-  return e instanceof Error ? e.message : String(e);
+  if (e instanceof Error) return e.message;
+  // Supabase-Fehler sind Plain-Objects mit .message — sonst JSON statt "[object Object]".
+  if (e && typeof e === 'object') {
+    const m = (e as { message?: unknown }).message;
+    if (typeof m === 'string' && m) return m;
+    try {
+      const s = JSON.stringify(e);
+      if (s && s !== '{}') return s;
+    } catch {
+      /* zirkulär → String-Fallback */
+    }
+  }
+  return String(e);
 }
 
 const ALLOWED_IMAGE_TYPES: ImageMediaType[] = [
@@ -45,6 +57,7 @@ function summaryMsg(s: IngestSummary): string {
   if (s.skippedPast > 0) parts.push(`${s.skippedPast} vergangen`);
   if (s.skippedDuplicate > 0) parts.push(`${s.skippedDuplicate} Duplikat(e)`);
   if (s.invalid > 0) parts.push(`${s.invalid} ungültig`);
+  if (s.truncated) parts.push('⚠ Output abgeschnitten — ggf. Input aufteilen');
   return parts.join(' · ');
 }
 
