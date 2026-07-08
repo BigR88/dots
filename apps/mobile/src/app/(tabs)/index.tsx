@@ -44,7 +44,7 @@ export default function MapScreen() {
   const [locationEnabled, setLocationEnabled] = useLocationEnabled();
 
   const [time, setTime] = useState<TimeValue>(isoDay(new Date()));
-  // Map-Filter (eigener State, getrennt von „Entdecken"): Kategorien mehrfach.
+  // Map-Filter (eigener State, getrennt vom „Events"-Tab): Kategorien mehrfach.
   const [categorySlugs, setCategorySlugs] = useState<string[]>([]);
   const [quick, setQuick] = useState<QuickFilterId[]>([]);
   const [timeStatus, setTimeStatus] = useState<TimeStatusFilter | null>(null);
@@ -106,7 +106,7 @@ export default function MapScreen() {
     origin: location,
     search: deferredSearch,
   };
-  const { data } = useQuery({
+  const { data, isPending, isError, refetch } = useQuery({
     queryKey: ['events', query],
     queryFn: () => listEvents(query),
   });
@@ -209,8 +209,11 @@ export default function MapScreen() {
   const sheetOpen = !!selectedGroup || filterOpen;
   const showTimeChips = todayContext && !sheetOpen;
 
+  // Empty State erst NACH abgeschlossenem Laden (sonst „blinkt" die Lupe beim
+  // Start bzw. steht bei einem Backend-Fehler dauerhaft ohne Ausweg da —
+  // Fehler bekommen unten eine eigene Karte mit „Erneut versuchen").
   const emptyMessage =
-    filteredEvents.length > 0
+    isPending || isError || filteredEvents.length > 0
       ? null
       : effectiveTimeStatus === 'live'
         ? 'Gerade läuft hier nichts.'
@@ -224,11 +227,19 @@ export default function MapScreen() {
                 ? 'Keine Events für diesen Filter.'
                 : 'Keine Events an diesem Tag.';
 
+  // Aus dem Empty State führt IMMER ein Weg heraus: Filter löschen, sonst
+  // zurück zu „heute" (z. B. leerer Tag im Kalender gewählt).
+  const emptyAction = anyFilter
+    ? { label: 'Filter löschen', onPress: resetFilters }
+    : time !== isoDay(now)
+      ? { label: 'Heute anzeigen', onPress: () => setTime(isoDay(now)) }
+      : null;
+
   return (
-    // Hintergrund = Map-Farbe (#0b1622) statt heller Theme-Farbe: Falls die
+    // Hintergrund = Map-Grundfarbe (#f2efe9, heller Voyager-Ton): Falls die
     // Leaflet-Karte (z. B. beim Start) kurz nicht bis zur unteren Kante reicht,
-    // blendet die Lücke in die Karte ein – nie ein weißer Streifen.
-    <View style={[styles.root, { backgroundColor: t.scheme === 'dark' ? t.colors.background : '#0b1622' }]}>
+    // blendet die Lücke in die Karte ein – nie ein abgesetzter Streifen.
+    <View style={[styles.root, { backgroundColor: t.scheme === 'dark' ? t.colors.background : '#f2efe9' }]}>
       {/* Vollbild-Satellitenkarte */}
       <View style={StyleSheet.absoluteFill}>
         <MapProvider
@@ -241,21 +252,36 @@ export default function MapScreen() {
         />
       </View>
 
-      {/* Weiche Verläufe oben/unten */}
+      {/* Weiche Verläufe oben/unten — bewusst dezent: auf der hellen Basemap
+          würde ein kräftiger weißer Wash die Ränder wie leere Fläche aussehen
+          lassen (die Glas-HUD/Tab-Bar tragen ihre Lesbarkeit selbst). */}
       <LinearGradient
         pointerEvents="none"
-        colors={[scrim(t.scheme, 0.7), scrim(t.scheme, 0)]}
-        style={[styles.topScrim, { height: insets.top + 170 }]}
+        colors={[scrim(t.scheme, 0.38), scrim(t.scheme, 0)]}
+        style={[styles.topScrim, { height: insets.top + 150 }]}
       />
       <LinearGradient
         pointerEvents="none"
-        colors={[scrim(t.scheme, 0), scrim(t.scheme, 0.55)]}
-        style={[styles.bottomScrim, { height: insets.bottom + 140 }]}
+        colors={[scrim(t.scheme, 0), scrim(t.scheme, 0.3)]}
+        style={[styles.bottomScrim, { height: insets.bottom + 120 }]}
       />
+
+      {/* Fehler beim Laden — eigene Karte mit Retry (statt irreführendem „keine Events") */}
+      {isError && !sheetOpen && (
+        <MapEmptyState
+          message="Events konnten nicht geladen werden."
+          actionLabel="Erneut versuchen"
+          onReset={() => void refetch()}
+        />
+      )}
 
       {/* Empty State — freundlich, mittig auf der Karte; nicht über offenen Sheets */}
       {emptyMessage && !sheetOpen && (
-        <MapEmptyState message={emptyMessage} onReset={anyFilter ? resetFilters : undefined} />
+        <MapEmptyState
+          message={emptyMessage}
+          actionLabel={emptyAction?.label}
+          onReset={emptyAction?.onPress}
+        />
       )}
 
       {/* Schwebende Top-Steuerung („Glass HUD"): schlanke Glas-Kapsel + EIN Filter-Orb */}
@@ -295,7 +321,7 @@ export default function MapScreen() {
         />
       )}
 
-      {/* Vereinheitlichtes Filter-Panel — EIN Einstieg, wie im Dashboard
+      {/* Vereinheitlichtes Filter-Panel — EIN Einstieg, wie im Events-Tab
           (Suche + Kategorie + Schnellfilter), klappt unter der HUD-Kapsel auf */}
       {filterOpen && (
         <MapFilterDropdown

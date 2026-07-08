@@ -15,7 +15,7 @@ import {
 import type { VenueMarker } from '@/lib/venues';
 
 /**
- * MapProvider (Native) — echte Satelliten-Karte auf dem Gerät (WebView+Leaflet,
+ * MapProvider (Native) — echte Weltkarte auf dem Gerät (WebView+Leaflet,
  * gleiche Quelle wie Web). Das Marker-HTML wird in TS gebaut (lib/map-markers.ts,
  * identisch zum Web) und per JSON in die WebView gereicht; die WebView ist nur
  * noch „dummer" Renderer. Labels erscheinen progressiv mit dem Zoom — dazu meldet
@@ -44,7 +44,7 @@ const MAP_HTML = `<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
-  html,body,#map{height:100%;margin:0;background:#0b1622}
+  html,body,#map{height:100%;margin:0;background:#f2efe9}
   .leaflet-control-attribution{display:none}
   ${MARKER_CSS}
   ${DISTRICT_CSS}
@@ -58,11 +58,11 @@ const MAP_HTML = `<!DOCTYPE html>
 (function(){
   function send(o){ if(window.ReactNativeWebView){ window.ReactNativeWebView.postMessage(JSON.stringify(o)); } }
   var map=L.map('map',{zoomControl:false,attributionControl:false,minZoom:11,maxZoom:19,maxBounds:[[49.85,8.3],[50.4,9.05]],maxBoundsViscosity:1,zoomSnap:.5}).setView([50.113,8.682],${FRANKFURT_ZOOM});
-  // Label-freie Dark-Basemap + Namen in zwei Fenstern: Städte ganz rausgezoomt,
-  // Straßen erst ab Venue-Zoom — dazwischen DOTS-Labels (Parität zum Web).
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png',{maxZoom:19}).addTo(map);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png',{maxZoom:19,minZoom:15.5,opacity:.85}).addTo(map);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png',{minZoom:11,maxZoom:12.4,opacity:.8}).addTo(map);
+  // Label-freie helle Basemap (voyager) + Namen in zwei Fenstern: Städte ganz
+  // rausgezoomt, Straßen erst ab Venue-Zoom — dazwischen DOTS-Labels (Parität zum Web).
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png',{maxZoom:19}).addTo(map);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png',{maxZoom:19,minZoom:15.5,opacity:.85}).addTo(map);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png',{minZoom:11,maxZoom:12.4,opacity:.8}).addTo(map);
   map.on('click',function(){ send({type:'select',key:null}); });
   map.on('zoomend',function(){ send({type:'zoom',zoom:map.getZoom()}); });
   var tint=document.createElement('div'); tint.className='dots-map-tint'; document.getElementById('map').appendChild(tint);
@@ -114,7 +114,7 @@ const MAP_HTML = `<!DOCTYPE html>
     if(z<=ZONE_MAX_Z){
       ZONES.forEach(function(zn,i){
         var d=Math.max(90,Math.min(420,pxDiameter(zn.lat,zn.lon,zn.radiusM)));
-        var html='<div class="dots-zone" style="width:'+d+'px;height:'+d+'px;opacity:'+energy+'"><i style="background:radial-gradient(circle, '+zn.color+'24 0%, '+zn.color+'14 42%, '+zn.color+'00 72%);animation-delay:-'+(i*1.3)+'s"></i></div>';
+        var html='<div class="dots-zone" style="width:'+d+'px;height:'+d+'px;opacity:'+energy+'"><i style="background:radial-gradient(circle, '+zn.color+'30 0%, '+zn.color+'1c 42%, '+zn.color+'00 72%);animation-delay:-'+(i*1.3)+'s"></i></div>';
         var icon=L.divIcon({className:'dots-hot-icon',html:html,iconSize:[d,d],iconAnchor:[d/2,d/2]});
         L.marker([zn.lat,zn.lon],{icon:icon,pane:'dotsHot',interactive:false,keyboard:false}).addTo(hgrp);
       });
@@ -128,7 +128,9 @@ const MAP_HTML = `<!DOCTYPE html>
     });
   }
   window.setHotAreas=function(list){ HOT=list||[]; renderHot(); };
-  map.on('zoomend moveend',renderHot);
+  // Nur zoomend: Glow-Größen hängen allein am Zoom — beim Pannen verschiebt
+  // Leaflet die bestehenden Marker selbst (kein Rebuild nötig).
+  map.on('zoomend',renderHot);
   var group=L.layerGroup().addTo(map);
   var userMarker=null;
   // Keyed Diff (Parität zum Web): neue Marker blühen gestaffelt auf, entfernte
@@ -162,6 +164,11 @@ const MAP_HTML = `<!DOCTYPE html>
       e.mk.setIcon(L.divIcon({className:'dots-marker-icon dots-anim-out',html:e.h,iconSize:[e.w,e.w],iconAnchor:[e.w/2,e.w/2]}));
       e.t=setTimeout(function(){ group.removeLayer(e.mk); delete live[k]; },240);
     });
+    // Screenreader-Name aufs fokussierbare Leaflet-Element (Parität zum Web).
+    function applyA11y(mk,m){
+      var el=mk.getElement();
+      if(el){ el.setAttribute('role','button'); el.setAttribute('aria-label',m.aria||''); }
+    }
     var ni=0;
     list.forEach(function(m){
       var h=withLabel[m.key]?m.htmlL:m.htmlP;
@@ -174,6 +181,7 @@ const MAP_HTML = `<!DOCTYPE html>
         if(back||e.h!==h||e.w!==m.w){
           e.mk.setIcon(L.divIcon({className:'dots-marker-icon',html:h,iconSize:[m.w,m.w],iconAnchor:[m.w/2,m.w/2]}));
           e.h=h; e.w=m.w;
+          applyA11y(e.mk,m); // setIcon ersetzt das DOM-Element
         }
         e.mk.setZIndexOffset(z);
       } else {
@@ -181,6 +189,7 @@ const MAP_HTML = `<!DOCTYPE html>
         var mk=L.marker([m.lat,m.lon],{icon:icon,zIndexOffset:z});
         mk.on('click',markerClick(m));
         mk.addTo(group);
+        applyA11y(mk,m);
         var el=mk.getElement()&&mk.getElement().querySelector('.dots-marker');
         var delay=Math.min(ni*24,200); ni++;
         if(el&&delay>0){ el.style.animationDelay=delay+'ms'; }
@@ -256,6 +265,7 @@ export function MapProvider({
         canLabel: canLabelZoom || callouts.has(m.key),
         htmlL: labeled.html,
         htmlP: plain.html,
+        aria: plain.ariaLabel,
       };
     });
     clusters.forEach((c) => {
@@ -270,6 +280,7 @@ export function MapProvider({
         canLabel: false,
         htmlL: icon.html,
         htmlP: icon.html,
+        aria: icon.ariaLabel,
       });
     });
     run(`window.setMarkers && window.setMarkers(${JSON.stringify(payload)})`);
@@ -344,8 +355,8 @@ export function MapProvider({
         startInLoadingState={false}
         // iOS: KEINE automatische Safe-Area-Einrückung — sonst schiebt WKWebView
         // den Karteninhalt unter der Dynamic Island nach unten und legt einen
-        // weißen Streifen (Default-Hintergrund des ScrollViews) frei. Der dunkle
-        // Container-Hintergrund (#0b1622) deckt das kurze Laden ab.
+        // Streifen (Default-Hintergrund des ScrollViews) frei. Der Container-
+        // Hintergrund in Karten-Grundfarbe (#f2efe9) deckt das kurze Laden ab.
         contentInsetAdjustmentBehavior="never"
         automaticallyAdjustContentInsets={false}
         style={styles.fill}
@@ -355,5 +366,5 @@ export function MapProvider({
 }
 
 const styles = StyleSheet.create({
-  fill: { flex: 1, overflow: 'hidden', backgroundColor: '#0b1622' },
+  fill: { flex: 1, overflow: 'hidden', backgroundColor: '#f2efe9' },
 });

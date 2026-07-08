@@ -15,6 +15,10 @@ export const CLUSTER_MAX_ZOOM = 13.75;
 /** Marker näher als so viele Bildschirm-Pixel fallen zu einem Cluster zusammen. */
 const CLUSTER_RADIUS_PX = 46;
 
+/** Cluster, deren ZENTREN sich näher kommen, werden nachträglich verschmolzen —
+ * die Bubbles sind bis ~48 px groß und würden sich sonst sichtbar überlappen. */
+const CLUSTER_MERGE_PX = 52;
+
 export interface ClusterMarker {
   /** Stabiler Schlüssel aus den Member-Keys — gleiche Mitglieder = gleicher Key. */
   key: string;
@@ -47,7 +51,7 @@ export function clusterMarkers(
 
   const used = new Array(markers.length).fill(false);
   const singles: VenueMarker[] = [];
-  const clusters: ClusterMarker[] = [];
+  const groups: VenueMarker[][] = [];
   const seeds = markers
     .map((m, i) => ({ m, i }))
     .sort((a, b) => b.m.intensity - a.m.intensity);
@@ -68,16 +72,45 @@ export function clusterMarkers(
       singles.push(m);
       continue;
     }
-    clusters.push({
+    groups.push(members);
+  }
+
+  // Merge-Pass: das Greedy-Clustering kann Zentren erzeugen, die auf dem
+  // Bildschirm dichter liegen als eine Bubble breit ist — solche Gruppen
+  // verschmelzen, bis alle Zentren genug Abstand haben.
+  const centroid = (ms: VenueMarker[]) => ({
+    lat: ms.reduce((s, x) => s + x.lat, 0) / ms.length,
+    lon: ms.reduce((s, x) => s + x.lon, 0) / ms.length,
+  });
+  let mergedSomething = true;
+  while (mergedSomething) {
+    mergedSomething = false;
+    outer: for (let a = 0; a < groups.length; a++) {
+      const ca = centroid(groups[a]);
+      const limitM = CLUSTER_MERGE_PX * metersPerPixel(ca.lat, zoom);
+      for (let b = a + 1; b < groups.length; b++) {
+        if (distanceMeters(ca, centroid(groups[b])) <= limitM) {
+          groups[a] = groups[a].concat(groups[b]);
+          groups.splice(b, 1);
+          mergedSomething = true;
+          break outer;
+        }
+      }
+    }
+  }
+
+  const clusters: ClusterMarker[] = groups.map((members) => {
+    const c = centroid(members);
+    return {
       key: 'cluster:' + members.map((x) => x.key).sort().join('|'),
-      lat: members.reduce((s, x) => s + x.lat, 0) / members.length,
-      lon: members.reduce((s, x) => s + x.lon, 0) / members.length,
+      lat: c.lat,
+      lon: c.lon,
       count: members.reduce((s, x) => s + x.count, 0),
       venueCount: members.length,
       intensity: members.reduce((mx, x) => Math.max(mx, x.intensity), 0),
       hot: members.some((x) => x.hot),
-    });
-  }
+    };
+  });
 
   return { singles, clusters };
 }

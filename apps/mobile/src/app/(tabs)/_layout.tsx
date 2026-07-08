@@ -11,9 +11,9 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{ headerShown: false }}
       tabBar={(props) => <FloatingTabBar {...props} />}>
-      {/* index = Karte (Startbildschirm), danach Entdecken-Liste */}
+      {/* index = Karte (Startbildschirm), danach Events-Liste */}
       <Tabs.Screen name="index" options={{ title: 'Karte' }} />
-      <Tabs.Screen name="discover" options={{ title: 'Entdecken' }} />
+      <Tabs.Screen name="discover" options={{ title: 'Events' }} />
       <Tabs.Screen name="friends" options={{ title: 'Freunde' }} />
       {/* Favoriten: Route bleibt erreichbar (übers Profil), wird aber in der
           FloatingTabBar ausgeblendet. */}

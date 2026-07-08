@@ -20,6 +20,7 @@ import { listEvents, type EventQuery } from '@/data/events';
 import { useLocation } from '@/hooks/use-location';
 import { isoDay } from '@/lib/time';
 import { useTheme } from '@/theme/theme';
+import { PAGE_TITLE } from '@/theme/typography';
 
 type Section = 'category' | 'quick' | 'sort';
 
@@ -88,7 +89,7 @@ export default function DiscoverScreen() {
           {/* Header: Wortmarke + Claim + runder Glas-Button */}
           <View style={styles.headerRow}>
             <View style={{ flex: 1 }}>
-              <GradientText style={styles.brand}>Dashboard.</GradientText>
+              <GradientText style={PAGE_TITLE}>events.</GradientText>
             </View>
             <View>
               <GlassButton
@@ -199,7 +200,6 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     gap: 12,
   },
-  brand: { fontSize: 30, fontWeight: '900', letterSpacing: -1 },
   activeDot: {
     position: 'absolute',
     top: -1,

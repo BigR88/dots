@@ -1,15 +1,15 @@
 import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Platform, StyleSheet, View, type ViewStyle } from 'react-native';
 import type { TimeValue } from '@dots/shared';
+import { GradientText } from '@/components/GradientText';
 import { useTheme } from '@/theme/theme';
 import { DateBar } from './DateBar';
 
 /**
  * Schwebende „Glass HUD"-Kapsel der Karte: ein schlankes Milchglas-Band statt
- * großer weißer Flächen. Links der Marken-Punkt, rechts die kompakte Glas-
- * Datumsleiste (Heute/Morgen + Kalender). Lesbar über dem Satellitenbild durch
- * die nahezu deckende `cardGlass`-Fläche; im Dark-Theme trägt der Blur.
+ * großer weißer Flächen. Links die „dots."-Wortmarke (klein geschrieben, wie
+ * die Seiten-Headlines), rechts die kompakte Glas-Datumsleiste (Heute/Morgen +
+ * Kalender). Lesbar über der Karte durch die nahezu deckende Deckschicht.
  */
 export function MapHud({
   time,
@@ -39,12 +39,7 @@ export function MapHud({
           ]}
         />
         <View pointerEvents="none" style={[styles.litEdge, { backgroundColor: t.colors.glassHighlight }]} />
-        <LinearGradient
-          colors={t.gradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.brandDot}
-        />
+        <GradientText style={styles.brandMark}>dots.</GradientText>
         <View style={styles.dateWrap}>
           <DateBar
             value={time}
@@ -84,6 +79,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   litEdge: { position: 'absolute', top: 0, left: 0, right: 0, height: 1 },
-  brandDot: { width: 11, height: 11, borderRadius: 6 },
+  brandMark: { fontSize: 16, fontWeight: '900', letterSpacing: -0.6 },
   dateWrap: { flex: 1 },
 });

@@ -6,6 +6,10 @@ export const USERNAME_MIN = 3;
 export const USERNAME_MAX = 20;
 const USERNAME_RE = /^[a-z0-9._]{3,20}$/;
 
+/** Demo-Persona ohne Auth-Session — EINE Quelle für Tab-Bar und Profilseite,
+ * damit Avatar-Initiale und Verlaufsfarben überall identisch sind. */
+export const DEMO_DISPLAY_NAME = 'Benas Gibson';
+
 /** Roh-Eingabe in ein gültiges Username-Format überführen (ohne Längen-Pad). */
 export function normalizeUsername(input: string): string {
   return input

@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Platform, Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import { useTheme } from '@/theme/theme';
+import { PAGE_TITLE } from '@/theme/typography';
 import { GradientText } from '@/components/GradientText';
 
 interface Props {
@@ -31,7 +32,7 @@ export function FriendsHeader({
   return (
     <View style={styles.wrap}>
       <View style={{ flex: 1 }}>
-        <GradientText style={styles.title}>Freunde.</GradientText>
+        <GradientText style={PAGE_TITLE}>freunde.</GradientText>
         {subtitle ? (
           <Text style={[styles.subtitle, { color: t.colors.textSecondary }]}>{subtitle}</Text>
         ) : null}
@@ -79,7 +80,6 @@ const softShadow = Platform.select({
 
 const styles = StyleSheet.create({
   wrap: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 6, paddingBottom: 14 },
-  title: { fontSize: 30, fontWeight: '900', letterSpacing: -0.9 },
   subtitle: { fontSize: 14, marginTop: 2 },
   note: { fontSize: 11, marginTop: 3 },
   action: {

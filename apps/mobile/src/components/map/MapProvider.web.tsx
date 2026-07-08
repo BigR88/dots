@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import 'leaflet/dist/leaflet.css';
 import { FRANKFURT_CENTER } from '@/lib/geo';
 import { buildClusterIcon, buildMarkerIcon, MARKER_CSS, MARKER_ZOOM } from '@/lib/map-markers';
 import { clusterMarkers } from '@/lib/map-clusters';
@@ -31,27 +32,25 @@ const ENTER_STAGGER_MS = 24;
 const ENTER_STAGGER_MAX_MS = 200;
 
 /**
- * MapProvider (Web) — echte Satelliten-Weltkarte via Leaflet (per CDN zur
- * Laufzeit geladen, sonst sprengt der window-Zugriff Expos Web-SSR). Zeigt EINEN
+ * MapProvider (Web) — echte Weltkarte via Leaflet. Leaflet kommt gebündelt aus
+ * node_modules (dynamischer import zur Laufzeit, sonst sprengt der window-
+ * Zugriff Expos Web-SSR) — kein CDN, funktioniert auch offline. Zeigt EINEN
  * DOTS-Marker pro Standort: Farbe = Kategorie, Größe = Beliebtheit, Zahl = Anzahl
  * Events. Labels erscheinen progressiv mit dem Zoom (siehe lib/map-markers.ts).
  */
 
-const LEAFLET_VERSION = '1.9.4';
-const LEAFLET_CSS = `https://unpkg.com/leaflet@${LEAFLET_VERSION}/dist/leaflet.css`;
-const LEAFLET_JS = `https://unpkg.com/leaflet@${LEAFLET_VERSION}/dist/leaflet.js`;
 const FRANKFURT_ZOOM = 12.5;
 const FRANKFURT_BOUNDS: [[number, number], [number, number]] = [
   [49.85, 8.3],
   [50.4, 9.05],
 ];
 
-// Label-FREIE Dark-Basemap (CARTO dark_nolabels): keine Autobahn-Schilder,
-// keine doppelten Ortsnamen — die DOTS-Distrikt-Labels sind die EINZIGE
-// Beschriftung der Übersicht. Straßennamen kommen als eigene Ebene erst beim
-// tiefen Reinzoomen dazu (Orientierung an der Venue). Kein API-Key nötig.
-const SAT_TILES = 'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png';
-const LABEL_TILES = 'https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png';
+// Label-FREIE helle Basemap (CARTO voyager_nolabels): dezent warm, keine
+// Autobahn-Schilder, keine doppelten Ortsnamen — die DOTS-Distrikt-Labels sind
+// die EINZIGE Beschriftung der Übersicht. Straßennamen kommen als eigene Ebene
+// erst beim tiefen Reinzoomen dazu (Orientierung an der Venue). Kein API-Key nötig.
+const BASE_TILES = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png';
+const LABEL_TILES = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png';
 /** Straßennamen-Ebene erst ab diesem Zoom (Venue-Nähe). */
 const LABEL_MIN_ZOOM = 15.5;
 /** Städtenamen-Ebene nur ganz rausgezoomt (Region: Frankfurt, Offenbach, …);
@@ -71,26 +70,22 @@ declare global {
 
 let leafletPromise: Promise<any> | null = null;
 
-function injectOnce(tag: 'link' | 'script', attrs: Record<string, string>): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const sel = `${tag}[data-dots="${attrs['data-dots']}"]`;
-    if (document.querySelector(sel)) return resolve();
-    const el = document.createElement(tag);
-    Object.entries(attrs).forEach(([k, v]) => el.setAttribute(k, v));
-    el.addEventListener('load', () => resolve());
-    el.addEventListener('error', () => reject(new Error(`Laden fehlgeschlagen: ${attrs.href ?? attrs.src}`)));
-    document.head.appendChild(el);
-  });
-}
-
+// Leaflet aus dem Bundle laden — dynamisch, damit der window-Zugriff des UMD-
+// Moduls nicht schon beim SSR-Prerender (Node) ausgeführt wird.
 function loadLeaflet(): Promise<any> {
   if (typeof window === 'undefined') return Promise.reject(new Error('SSR'));
   if (window.L) return Promise.resolve(window.L);
   if (!leafletPromise) {
-    leafletPromise = Promise.all([
-      injectOnce('link', { rel: 'stylesheet', href: LEAFLET_CSS, 'data-dots': 'leaflet-css' }),
-      injectOnce('script', { src: LEAFLET_JS, 'data-dots': 'leaflet-js' }),
-    ]).then(() => window.L);
+    leafletPromise = import('leaflet').then((mod: any) => {
+      const L = mod?.default ?? mod;
+      window.L = L; // die Render-Effekte greifen über window.L zu
+      return L;
+    });
+    // Fehlgeschlagenes Laden (z. B. Chunk offline nicht im Cache) darf einen
+    // erneuten Versuch nicht blockieren.
+    leafletPromise.catch(() => {
+      leafletPromise = null;
+    });
   }
   return leafletPromise;
 }
@@ -137,6 +132,10 @@ export function MapProvider({
   onSelectRef.current = onSelectMarker;
   const [ready, setReady] = useState(false);
   const [zoom, setZoom] = useState(FRANKFURT_ZOOM);
+  // Leaflet konnte nicht geladen werden → sichtbarer Fallback statt leerer Karte;
+  // retryNonce stößt die Initialisierung erneut an.
+  const [loadError, setLoadError] = useState(false);
+  const [retryNonce, setRetryNonce] = useState(0);
   const lastFocus = useRef(0);
 
   // Stadtteil-Labels rendern: zoomabhängig (visibleDistricts), nicht in den
@@ -242,13 +241,13 @@ export function MapProvider({
           zoomSnap: 0.5,
         }).setView([FRANKFURT_CENTER.lat, FRANKFURT_CENTER.lon], FRANKFURT_ZOOM);
 
-        L.tileLayer(SAT_TILES, { maxZoom: 19, attribution: ESRI_ATTR }).addTo(map);
+        L.tileLayer(BASE_TILES, { maxZoom: 19, attribution: ESRI_ATTR }).addTo(map);
         L.tileLayer(LABEL_TILES, { maxZoom: 19, minZoom: LABEL_MIN_ZOOM, opacity: 0.85 }).addTo(map);
         L.tileLayer(LABEL_TILES, { minZoom: 11, maxZoom: OVERVIEW_LABEL_MAX_ZOOM, opacity: 0.8 }).addTo(map);
         map.on('click', () => onSelectRef.current(null));
         map.on('zoomend', () => setZoom(map.getZoom()));
 
-        // Nightlife-Vignette (viewport-fix) über der Karte; Mitte transparent.
+        // Marken-Vignette (viewport-fix) über der Karte; Mitte transparent.
         const tint = document.createElement('div');
         tint.className = 'dots-map-tint';
         el.appendChild(tint);
@@ -271,10 +270,11 @@ export function MapProvider({
           dpane.style.pointerEvents = 'none';
         }
         districtRef.current = L.layerGroup().addTo(map);
-        map.on('moveend', () => {
-          renderHotRef.current();
-          renderDistrictsRef.current();
-        });
+        // moveend: NUR Stadtteil-Labels neu setzen (deren Tabuzonen hängen am
+        // Pan). Hot-Areas/Energie-Zonen hängen allein am Zoom — die rendert der
+        // zoom-Effekt; sie bei jedem Pan neu zu bauen wäre unnötiger DOM-Churn
+        // (Leaflet verschiebt bestehende Marker beim Pannen selbst).
+        map.on('moveend', () => renderDistrictsRef.current());
 
         mapRef.current = map;
         if (process.env.NODE_ENV !== 'production') (window as any).__dotsMap = map; // Debug-Zugriff im Dev
@@ -296,7 +296,9 @@ export function MapProvider({
         renderDistrictsRef.current();
       })
       .catch(() => {
-        /* offline / CDN blockiert — Karte bleibt leer, App läuft weiter */
+        // Leaflet-Chunk nicht ladbar (z. B. offline beim ersten Start) →
+        // sichtbarer Fallback mit „Erneut versuchen" statt leerer Karte.
+        if (!cancelled) setLoadError(true);
       });
     return () => {
       cancelled = true;
@@ -313,7 +315,7 @@ export function MapProvider({
       mapRef.current?.remove();
       mapRef.current = null;
     };
-  }, []);
+  }, [retryNonce]);
 
   // Standort-Pins per keyed Diff aktualisieren (statt clearLayers): neue Marker
   // blühen gestaffelt auf, entfernte schrumpfen weg, bestehende werden nur per
@@ -365,12 +367,21 @@ export function MapProvider({
     labelledKeysRef.current = labelled;
 
     // Render-Liste: Venue-Dots + Cluster-Bubbles mit stabilen Keys.
-    type Item = { key: string; lat: number; lon: number; html: string; size: number; z: number; onClick: (e: any) => void };
+    type Item = { key: string; lat: number; lon: number; html: string; size: number; aria: string; z: number; onClick: (e: any) => void };
     const items: Item[] = [];
+    // Screenreader-Name direkt aufs fokussierbare Leaflet-Element (Leaflet macht
+    // Marker per keyboard-Option tabbable, gibt ihnen aber keinen Namen).
+    const applyA11y = (marker: any, aria: string) => {
+      const el = marker.getElement?.();
+      if (el) {
+        el.setAttribute('role', 'button');
+        el.setAttribute('aria-label', aria);
+      }
+    };
     singles.forEach((m) => {
       const selected = m.key === selectedKey;
       const withLabel = labelled.has(m.key);
-      const { html, size } = buildMarkerIcon(m, {
+      const { html, size, ariaLabel } = buildMarkerIcon(m, {
         selected,
         showLabel: withLabel,
         showDetail: showDetail && withLabel,
@@ -381,6 +392,7 @@ export function MapProvider({
         lon: m.lon,
         html,
         size,
+        aria: ariaLabel,
         z: selected ? 1000 : m.hot ? 300 : 0,
         onClick: (e: any) => {
           if (e?.originalEvent) L.DomEvent.stopPropagation(e.originalEvent);
@@ -389,13 +401,14 @@ export function MapProvider({
       });
     });
     clusters.forEach((c) => {
-      const { html, size } = buildClusterIcon(c);
+      const { html, size, ariaLabel } = buildClusterIcon(c);
       items.push({
         key: c.key,
         lat: c.lat,
         lon: c.lon,
         html,
         size,
+        aria: ariaLabel,
         z: 100,
         onClick: (e: any) => {
           if (e?.originalEvent) L.DomEvent.stopPropagation(e.originalEvent);
@@ -455,6 +468,8 @@ export function MapProvider({
           );
           existing.html = it.html;
           existing.size = it.size;
+          // setIcon ersetzt das DOM-Element → ARIA-Attribute neu setzen.
+          applyA11y(existing.marker, it.aria);
         }
         existing.marker.setZIndexOffset(it.z);
       } else {
@@ -467,6 +482,7 @@ export function MapProvider({
         const marker = L.marker([it.lat, it.lon], { icon, zIndexOffset: it.z, riseOnHover: true });
         marker.on('click', it.onClick);
         marker.addTo(group);
+        applyA11y(marker, it.aria);
         // Gestaffelter Eintritt: animation-delay direkt aufs animierte Element.
         const delay = Math.min(enterIdx * ENTER_STAGGER_MS, ENTER_STAGGER_MAX_MS);
         enterIdx += 1;
@@ -523,10 +539,51 @@ export function MapProvider({
     map.flyTo([focus.point.lat, focus.point.lon], targetZoom, { duration: 0.8 });
   }, [focus, ready]);
 
-  return <View nativeID={MAP_ID} style={styles.fill} />;
+  return (
+    <View style={styles.fill}>
+      <View nativeID={MAP_ID} style={styles.fill} />
+      {loadError && (
+        <View style={styles.fallback}>
+          <Text style={styles.fallbackTitle}>Karte konnte nicht geladen werden.</Text>
+          <Text style={styles.fallbackHint}>Bitte Verbindung prüfen — die Events bleiben verfügbar.</Text>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => {
+              setLoadError(false);
+              setRetryNonce((n) => n + 1);
+            }}
+            style={({ pressed }) => [styles.fallbackBtn, pressed && { opacity: 0.85 }]}>
+            <Text style={styles.fallbackBtnText}>Erneut versuchen</Text>
+          </Pressable>
+        </View>
+      )}
+    </View>
+  );
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
 const styles = StyleSheet.create({
   fill: { flex: 1, overflow: 'hidden' },
+  fallback: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    padding: 24,
+    backgroundColor: '#f2efe9',
+  },
+  fallbackTitle: { fontSize: 15, fontWeight: '700', color: '#2c2650', textAlign: 'center' },
+  fallbackHint: { fontSize: 13, color: '#6b6590', textAlign: 'center' },
+  fallbackBtn: {
+    marginTop: 6,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 999,
+    backgroundColor: '#6C5CE7',
+  },
+  fallbackBtnText: { color: '#fff', fontSize: 13.5, fontWeight: '800' },
 });

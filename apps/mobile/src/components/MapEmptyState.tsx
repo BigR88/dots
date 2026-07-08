@@ -5,8 +5,17 @@ import { useTheme } from '@/theme/theme';
 /**
  * Kleiner, freundlicher Hinweis, wenn ein Filter keine Events liefert — schwebt
  * mittig über der Karte, blockiert sie aber nicht (nur die Card ist tippbar).
+ * `actionLabel` benennt den Ausweg (Filter löschen, Heute anzeigen, Retry, …).
  */
-export function MapEmptyState({ message, onReset }: { message: string; onReset?: () => void }) {
+export function MapEmptyState({
+  message,
+  actionLabel = 'Filter löschen',
+  onReset,
+}: {
+  message: string;
+  actionLabel?: string;
+  onReset?: () => void;
+}) {
   const t = useTheme();
   return (
     <View style={styles.wrap} pointerEvents="box-none">
@@ -14,8 +23,11 @@ export function MapEmptyState({ message, onReset }: { message: string; onReset?:
         <Ionicons name="search-outline" size={20} color={t.colors.textMuted} />
         <Text style={[styles.text, { color: t.colors.textPrimary }]}>{message}</Text>
         {onReset && (
-          <Pressable onPress={onReset} style={({ pressed }) => [styles.btn, { backgroundColor: t.accent }, pressed && { opacity: 0.9 }]}>
-            <Text style={styles.btnText}>Filter löschen</Text>
+          <Pressable
+            accessibilityRole="button"
+            onPress={onReset}
+            style={({ pressed }) => [styles.btn, { backgroundColor: t.accent }, pressed && { opacity: 0.9 }]}>
+            <Text style={styles.btnText}>{actionLabel}</Text>
           </Pressable>
         )}
       </View>

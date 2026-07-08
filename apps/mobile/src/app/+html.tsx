@@ -30,8 +30,8 @@ export default function Root({ children }: PropsWithChildren) {
 
         {/* PWA / Installierbarkeit */}
         <link rel="manifest" href={`${base}/manifest.json`} />
-        {/* theme-color = Map-Farbe (Startbildschirm ist die dunkle Karte). */}
-        <meta name="theme-color" content="#0b1622" />
+        {/* theme-color = Map-Grundfarbe (Startbildschirm ist die helle Karte). */}
+        <meta name="theme-color" content="#f2efe9" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         {/* black-translucent: die App füllt den GESAMTEN Bildschirm (auch unter
@@ -65,7 +65,14 @@ html, body { margin: 0; overflow: hidden; }
 @supports (height: 100lvh) {
   html, body, #root { height: 100lvh; }
 }
-/* Canvas dunkel = Map-Farbe (#0b1622): falls iOS doch eine Lücke lässt, blendet
-   sie in die Karte ein statt als weißer Streifen. */
-html, body { background-color: #0b1622; }
+/* Canvas = Map-Grundfarbe (#f2efe9): falls iOS doch eine Lücke lässt, blendet
+   sie in die Karte ein statt als abgesetzter Streifen. */
+html, body { background-color: #f2efe9; }
+/* Touch-Geräte: backdrop-filter (Glas-Blur) über der bewegten Karte kostet auf
+   Mobile-GPUs massiv Frames — jeder Pan-Frame resampelt den Hintergrund hinter
+   HUD, Chips und Sheets. Die Glas-Flächen sind nahezu deckend, der Blur ist
+   reine Kür: er bleibt Desktop-Browsern (pointer: fine) vorbehalten. */
+@media (pointer: coarse) {
+  * { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+}
 `;

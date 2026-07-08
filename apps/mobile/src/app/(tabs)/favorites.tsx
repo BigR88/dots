@@ -27,7 +27,7 @@ export default function FavoritesScreen() {
     <View style={[styles.root, { backgroundColor: t.colors.background, paddingTop: insets.top }]}>
       <ScreenGradient />
       <ScreenHeader
-        title="Favoriten"
+        title="favoriten"
         subtitle={
           ids.length === 0
             ? 'Deine gespeicherten Events'

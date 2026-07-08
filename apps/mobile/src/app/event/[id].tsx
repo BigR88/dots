@@ -35,12 +35,15 @@ import { hexA } from '@/lib/color';
 import { formatDateTime, formatPrice, isFree } from '@/lib/format';
 import { useTheme } from '@/theme/theme';
 
-function primaryCta(e: DotsEvent): { label: string; url: string } | null {
+function primaryCta(e: DotsEvent): { label: string; url: string } {
   if (e.ticketUrl) return { label: 'Tickets ansehen', url: e.ticketUrl };
   if (e.externalUrl) return { label: 'Zur Eventseite', url: e.externalUrl };
   if (e.venue?.websiteUrl) return { label: 'Zur Venue-Website', url: e.venue.websiteUrl };
   if (e.venue?.instagram) return { label: 'Auf Instagram', url: `https://instagram.com/${e.venue.instagram}` };
-  return null;
+  // Garantierter Ausstieg: ohne hinterlegten Link führt der CTA zur Websuche —
+  // der Haupt-Button der Detailseite ist damit nie tot.
+  const q = encodeURIComponent(`${e.title} ${e.venue?.name ?? ''} Frankfurt`.trim());
+  return { label: 'Im Web suchen', url: `https://www.google.com/search?q=${q}` };
 }
 
 export default function EventDetailScreen() {
@@ -82,7 +85,7 @@ export default function EventDetailScreen() {
   const color = event.category?.color ?? t.accent;
   const free = isFree(event);
   const cta = primaryCta(event);
-  const openCta = () => cta && WebBrowser.openBrowserAsync(cta.url);
+  const openCta = () => WebBrowser.openBrowserAsync(cta.url);
   const openMaps = () => {
     const q = encodeURIComponent(`${event.venue?.name ?? ''} ${event.venue?.address ?? 'Frankfurt'}`);
     Linking.openURL(`https://maps.apple.com/?q=${q}`);
@@ -174,13 +177,7 @@ export default function EventDetailScreen() {
             size={48}
             accessibilityLabel="An Freund:in senden"
           />
-          {cta ? (
-            <PrimaryButton label={cta.label} rightIcon="open-outline" onPress={openCta} style={styles.cta} />
-          ) : (
-            <View style={[styles.cta, styles.ctaEmpty, { backgroundColor: t.colors.surfaceElevated }]}>
-              <Text style={[styles.ctaText, { color: t.colors.textSecondary }]}>Kein externer Link</Text>
-            </View>
-          )}
+          <PrimaryButton label={cta.label} rightIcon="open-outline" onPress={openCta} style={styles.cta} />
         </GlassCard>
       </View>
 
@@ -221,6 +218,4 @@ const styles = StyleSheet.create({
   footerWrap: { position: 'absolute', left: 14, right: 14, bottom: 0 },
   footer: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10 },
   cta: { flex: 1 },
-  ctaEmpty: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 15, borderRadius: 14 },
-  ctaText: { fontSize: 15, fontWeight: '700' },
 });

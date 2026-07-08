@@ -66,12 +66,23 @@ export function DateBar({
     <View style={[styles.row, { paddingHorizontal: horizontalPadding }]}>
       {visible.map((opt) => {
         const active = value === opt.value;
+        // Glas-Variante (schmale Karten-Kapsel, links die Wortmarke): nur der
+        // AKTIVE Pill trägt das Datum, inaktive nur das Wort — sonst werden
+        // Labels angeschnitten (z. B. „7 Tage" am Kalender-Button).
+        const compact = glass && (calendarActive || !active);
+        const label = compact
+          ? opt.isToday
+            ? 'Heute'
+            : opt.isTomorrow
+              ? 'Morgen'
+              : shortDayLabel(opt)
+          : shortDayLabel(opt);
         return (
           <Pressable key={opt.value} onPress={() => onChange(opt.value)} style={pillStyle(active)}>
             <Text
               numberOfLines={1}
               style={[styles.label, { color: active ? '#fff' : t.colors.textPrimary }]}>
-              {shortDayLabel(opt)}
+              {label}
             </Text>
           </Pressable>
         );
@@ -119,8 +130,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     minWidth: 44,
+    flexShrink: 1,
   },
   pillGlass: { paddingHorizontal: 11, paddingVertical: 6, minWidth: 38 },
-  calPill: { flexDirection: 'row', gap: 5, marginLeft: 'auto' },
+  // Der Kalender-Pill zeigt die AKTIVE Auswahl — er gibt nie Platz ab
+  // (schrumpfen dürfen nur die Tages-Pills links davon).
+  calPill: { flexDirection: 'row', gap: 5, marginLeft: 'auto', flexShrink: 0 },
   label: { fontSize: 12.5, fontWeight: '700', letterSpacing: -0.2 },
 });

@@ -66,7 +66,7 @@ export const HOT_AREA_CSS = `
 .dots-hot-icon{background:transparent!important;border:0!important;}
 .dots-hot{border-radius:50%;}
 .dots-hot i{display:block;width:100%;height:100%;border-radius:50%;
-  background:radial-gradient(circle, rgba(255,132,120,.17) 0%, rgba(236,88,180,.12) 40%, rgba(140,84,255,.07) 62%, rgba(140,84,255,0) 76%);
+  background:radial-gradient(circle, rgba(255,132,120,.22) 0%, rgba(236,88,180,.15) 40%, rgba(140,84,255,.09) 62%, rgba(140,84,255,0) 76%);
   animation:dots-hot-breathe 5.4s ease-in-out infinite alternate;}
 @keyframes dots-hot-breathe{from{transform:scale(.92);opacity:.72}to{transform:scale(1.08);opacity:1}}
 .dots-zone{border-radius:50%;}
@@ -123,7 +123,8 @@ export function nightEnergyFactor(now: Date = new Date()): number {
 }
 
 /**
- * HTML eines Zonen-Glows (d = Pixel-Durchmesser). Farbe als hex+Alpha-Stufen.
+ * HTML eines Zonen-Glows (d = Pixel-Durchmesser). Farbe als hex+Alpha-Stufen
+ * (auf der hellen Basemap etwas kräftiger als früher auf der dunklen).
  * `energy` dimmt per Tageszeit (inline auf dem Wrapper, damit die Atmungs-
  * Animation auf <i> sie nicht überschreibt); `phaseSec` versetzt die Atmung,
  * damit die Zonen nicht mechanisch im Gleichtakt pulsieren.
@@ -132,6 +133,6 @@ export function energyZoneHtml(zone: EnergyZone, d: number, energy = 1, phaseSec
   const c = zone.color;
   return (
     `<div class="dots-zone" style="width:${d}px;height:${d}px;opacity:${energy}">` +
-    `<i style="background:radial-gradient(circle, ${c}24 0%, ${c}14 42%, ${c}00 72%);animation-delay:-${phaseSec}s"></i></div>`
+    `<i style="background:radial-gradient(circle, ${c}30 0%, ${c}1c 42%, ${c}00 72%);animation-delay:-${phaseSec}s"></i></div>`
   );
 }

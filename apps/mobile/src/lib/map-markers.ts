@@ -61,19 +61,17 @@ function esc(s: string): string {
  * beide Hosts identisch eingespielt — Web per <style>, nativ im HTML-<head>.
  */
 export const MARKER_CSS = `
-/* CARTO dark ist sehr dunkel: kräftig aufhellen und ins Blauviolette schieben —
-   Straßennetz bleibt sichtbar, die Nightlife-Stimmung kommt aus Tint + Glows. */
-.leaflet-tile-pane{filter:brightness(2.3) sepia(.24) hue-rotate(210deg) saturate(1.6) contrast(.9);}
-/* Nightlife-Atmosphäre über der Karte (Mitte bleibt frei, damit Marker tragen):
-   1) sanfte Vignette (Tiefe)  2) hauchdünner Blau-Violett-Wash  3) Stadtlicht.
-   Bewusst leicht — die Karte soll leuchten, nicht ersticken.
+/* BEWUSST kein CSS-Filter auf .leaflet-tile-pane: ein Filter über allen Kacheln
+   zwingt Mobile-GPUs bei jedem Pan/Zoom-Frame durch einen Repaint — Voyager ist
+   hell genug, die Marker tragen auch ungefiltert. */
+/* Sanfte Atmosphäre über der hellen Karte (Mitte bleibt frei, damit Marker
+   tragen): dezente Lila-Vignette + hauchdünner Marken-Wash am unteren Rand.
    z-index 450: ÜBER dem Leaflet-Map-Pane (400), sonst läge das Overlay hinter
    den opaken Kacheln und wäre unsichtbar. */
 .dots-map-tint{position:absolute;inset:0;z-index:450;pointer-events:none;
   background:
-    radial-gradient(118% 88% at 50% 40%, rgba(10,8,26,0) 55%, rgba(10,8,26,.26) 100%),
-    linear-gradient(180deg, rgba(34,24,80,.12) 0%, rgba(14,10,32,.02) 34%, rgba(64,36,128,.06) 70%, rgba(9,7,22,.22) 100%),
-    radial-gradient(85% 50% at 50% 110%, rgba(108,92,255,.08) 0%, rgba(108,92,255,0) 62%);}
+    radial-gradient(118% 88% at 50% 40%, rgba(124,108,255,0) 60%, rgba(124,108,255,.10) 100%),
+    linear-gradient(180deg, rgba(255,255,255,.18) 0%, rgba(255,255,255,0) 30%, rgba(108,92,255,.05) 100%);}
 .dots-marker-icon{background:transparent!important;border:0!important;}
 .dots-marker{position:relative;display:flex;align-items:center;justify-content:center;}
 /* Eintritt/Austritt: Marker blühen beim Filtern sanft auf bzw. schrumpfen weg.
@@ -97,11 +95,12 @@ export const MARKER_CSS = `
   animation:dots-breathe 2.8s ease-in-out infinite;}
 @keyframes dots-breathe{0%,100%{transform:translate(-50%,-50%) scale(.82);opacity:.4}50%{transform:translate(-50%,-50%) scale(1.12);opacity:.72}}
 /* Cluster-Bubble: dunkles Glas mit Lila-Kante — „mehrere Events in dieser Gegend".
+   Bewusst dunkel gehalten: klarer Kontrast-Anker auf der hellen Karte.
    Tipp darauf zoomt hinein (kein Venue-Select). */
 .dots-cluster{position:relative;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;
   background:radial-gradient(circle at 32% 26%, rgba(84,66,160,.95) 0%, rgba(26,20,52,.95) 70%);
   border:1.5px solid rgba(196,182,255,.8);box-sizing:border-box;color:#fff;line-height:1;
-  box-shadow:0 0 0 4px rgba(108,92,255,.16),0 0 20px rgba(108,92,255,.5),0 4px 16px rgba(0,0,0,.55);}
+  box-shadow:0 0 0 4px rgba(108,92,255,.14),0 0 20px rgba(108,92,255,.35),0 4px 16px rgba(31,26,64,.3);}
 .dots-cluster__n{font-weight:800;letter-spacing:-.3px;}
 .dots-cluster__u{font-size:8px;font-weight:700;letter-spacing:.5px;opacity:.72;margin-top:2px;text-transform:uppercase;}
 .dots-ring{position:absolute;inset:-8px;border-radius:50%;border:3px solid ${ACCENT};
@@ -111,21 +110,22 @@ export const MARKER_CSS = `
 /* „Startet bald": ruhiger statischer Ring, kein Blinken. */
 .dots-ring--soon{border-width:2px;animation:none;opacity:.6;}
 @keyframes dots-ping{0%{transform:scale(.7);opacity:.8}80%{opacity:0}100%{transform:scale(2.05);opacity:0}}
-/* Deckkraft trägt die Lesbarkeit (Blur nur Premium-Plus, nicht überall verfügbar). */
+/* Deckkraft trägt die Lesbarkeit — BEWUSST kein backdrop-filter: die Labels
+   bewegen sich mit jedem Karten-Frame, Blur dahinter müsste pro Frame neu
+   berechnet werden (spürbares Ruckeln auf Mobile). */
 .dots-label{position:absolute;top:calc(100% + 6px);left:50%;transform:translateX(-50%);
   max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-  background:rgba(13,12,22,.82);color:#fff;font-size:11px;font-weight:700;letter-spacing:-.1px;
+  background:rgba(13,12,22,.9);color:#fff;font-size:11px;font-weight:700;letter-spacing:-.1px;
   padding:4px 9px;border-radius:9px;border:1px solid rgba(255,255,255,.16);
   text-shadow:0 1px 2px rgba(0,0,0,.55);
   box-shadow:0 6px 18px rgba(0,0,0,.42),inset 0 1px 0 rgba(255,255,255,.08);
-  backdrop-filter:blur(10px) saturate(1.2);-webkit-backdrop-filter:blur(10px) saturate(1.2);
   text-align:center;pointer-events:none;}
 .dots-label__sub{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;font-size:10px;font-weight:600;opacity:.8;margin-top:1px;letter-spacing:0;}
 .dots-user{width:22px;height:22px;}
 .dots-user::before{content:'';position:absolute;inset:0;border-radius:50%;background:rgba(108,92,255,.35);animation:dots-pulse 1.8s ease-out infinite;}
 .dots-user::after{content:'';position:absolute;top:50%;left:50%;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;background:${ACCENT};border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);}
 @keyframes dots-pulse{0%{transform:scale(.6);opacity:.9}100%{transform:scale(2.4);opacity:0}}
-.leaflet-container{background:#0b1622;}
+.leaflet-container{background:#f2efe9;}
 /* Barrierefreiheit: reduzierte Bewegung → dauerhafte Animationen aus (Enter/Exit bleiben, sie sind einmalig + kurz). */
 @media (prefers-reduced-motion: reduce){.dots-halo,.dots-ring,.dots-hot i,.dots-user::before{animation:none!important;}}
 `;
@@ -134,6 +134,16 @@ export interface MarkerIcon {
   html: string;
   /** Kantenlänge der quadratischen Icon-Box (Dot + Tap-Halo) — Leaflet iconSize/anchor. */
   size: number;
+  /** Screenreader-Name des Markers (die Hosts setzen ihn aufs Leaflet-Element). */
+  ariaLabel: string;
+}
+
+/** Screenreader-Label eines Venue-Markers: Name, Event-Zahl, Genre, Live-Status. */
+export function markerAriaLabel(m: MarkerInput): string {
+  const what = m.count > 1 ? `${m.count} Events` : [m.genre, m.timeLabel].filter(Boolean).join(', ') || '1 Event';
+  const status =
+    m.status === 'live' ? ', läuft gerade' : m.status === 'soon' ? ', startet bald' : m.past ? ', bereits vorbei' : '';
+  return `${m.venueName}: ${what}${status}`;
 }
 
 /**
@@ -154,13 +164,13 @@ export function buildMarkerIcon(
   const numFont = Math.max(10, Math.round(dot * 0.46));
   const multi = m.count > 1;
 
-  // Auf der dunkleren Karte: ausgewählter Marker mit kräftigem Lila-Ring + Glow;
-  // Trending-Marker leuchten stärker in ihrer Kategorie-Farbe.
+  // Ausgewählter Marker mit kräftigem Lila-Ring + Glow; Trending-Marker leuchten
+  // stärker in ihrer Kategorie-Farbe. Schlagschatten weich (helle Basemap).
   const glow = selected
-    ? `0 0 0 3px rgba(108,92,255,.95),0 0 14px ${ACCENT},0 0 22px ${m.color}99,0 2px 8px rgba(0,0,0,.5)`
+    ? `0 0 0 3px rgba(108,92,255,.95),0 0 14px ${ACCENT},0 0 22px ${m.color}99,0 2px 8px rgba(31,26,64,.3)`
     : hot
-      ? `0 0 12px ${m.color}e6,0 0 26px ${m.color}73,0 2px 6px rgba(0,0,0,.5)`
-      : `0 0 8px ${m.color}cc,0 2px 6px rgba(0,0,0,.5)`;
+      ? `0 0 12px ${m.color}e6,0 0 26px ${m.color}73,0 2px 6px rgba(31,26,64,.28)`
+      : `0 0 8px ${m.color}cc,0 2px 6px rgba(31,26,64,.28)`;
 
   const num = multi ? `<span class="dots-dot__n" style="font-size:${numFont}px">${m.count}</span>` : '';
 
@@ -203,7 +213,7 @@ export function buildMarkerIcon(
     `${num}${ring}${label}</div>` +
     `</div>`;
 
-  return { html, size: box };
+  return { html, size: box, ariaLabel: markerAriaLabel(m) };
 }
 
 /** Felder, die ein Cluster-Marker zum Rendern braucht (strukturell = ClusterMarker). */
@@ -231,5 +241,9 @@ export function buildClusterIcon(c: ClusterInput): MarkerIcon {
     `<div class="dots-cluster" style="width:${d}px;height:${d}px">` +
     `<span class="dots-cluster__n" style="font-size:${Math.round(d * 0.38)}px">${c.count}</span>${sub}</div>` +
     `</div>`;
-  return { html, size: box };
+  return {
+    html,
+    size: box,
+    ariaLabel: `${c.count} Events in dieser Gegend — tippen zum Vergrößern`,
+  };
 }

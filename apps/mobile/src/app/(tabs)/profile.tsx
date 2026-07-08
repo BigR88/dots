@@ -17,8 +17,9 @@ import { pickAvatar, useAvatar } from '@/hooks/use-avatar';
 import { useFavoriteIds } from '@/hooks/use-favorites';
 import { useFriendOverview } from '@/hooks/use-friends';
 import { useMyProfile } from '@/hooks/use-profile';
-import { suggestUsername } from '@/lib/username';
+import { DEMO_DISPLAY_NAME, suggestUsername } from '@/lib/username';
 import { useTheme } from '@/theme/theme';
+import { PAGE_TITLE } from '@/theme/typography';
 
 export default function ProfileScreen() {
   const t = useTheme();
@@ -32,7 +33,7 @@ export default function ProfileScreen() {
   const attending = useAttendingIds();
   const overview = useFriendOverview();
 
-  const name = profile.data?.displayName ?? displayName ?? 'Benas Gibson';
+  const name = profile.data?.displayName ?? displayName ?? DEMO_DISPLAY_NAME;
   const username =
     profile.data?.username ??
     (displayName || email ? suggestUsername(displayName, email) : 'dots.developer');
@@ -84,7 +85,7 @@ export default function ProfileScreen() {
         {/* Kopfzeile */}
         <View style={styles.headerRow}>
           <View style={{ flex: 1 }}>
-            <GradientText style={styles.title}>Profil.</GradientText>
+            <GradientText style={PAGE_TITLE}>profil.</GradientText>
           </View>
           <Pressable
             onPress={() => router.push('/settings')}
@@ -157,7 +158,6 @@ const styles = StyleSheet.create({
   bgGradient: { position: 'absolute', top: 0, left: 0, right: 0 },
   content: { paddingHorizontal: 16 },
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 },
-  title: { fontSize: 28, fontWeight: '900', letterSpacing: -0.8 },
   gear: {
     width: 44,
     height: 44,

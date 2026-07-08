@@ -209,7 +209,39 @@ interface NowSeed {
   pop: number;
   /** „Interessiert"-Zahl (Anzeige im Sheet); fehlt sie, wird sie aus pop abgeleitet. */
   fav?: number;
+  ticket?: string;
+  external?: string;
 }
+
+// Plausible Demo-Links je Venue: jedes Live-Demo-Event hat damit IMMER einen
+// externen Link (CTA auf der Detailseite ist nie leer).
+const VENUE_LINKS: Partial<Record<keyof typeof VENUES, string>> = {
+  pulse: 'https://ra.co/clubs/frankfurt',
+  gibson: 'https://gibson-club.de',
+  basement: 'https://ra.co/clubs/frankfurt',
+  jazzkeller: 'https://jazzkeller.com',
+  klapperkahn: 'https://klapperkahn.de',
+  mainkai: 'https://frankfurt-tourismus.de',
+  campuswest: 'https://asta-frankfurt.de',
+  velvet: 'https://ra.co/clubs/frankfurt',
+  lavana: 'https://lavana.de',
+  bergerwein: 'https://frankfurt-tourismus.de',
+  oederweg: 'https://frankfurt-tourismus.de',
+  westendroof: 'https://ra.co/clubs/frankfurt',
+  kleinmarkthalle: 'https://kleinmarkthalle.de',
+  warehouse: 'https://ra.co/clubs/frankfurt',
+  mousonturm: 'https://mousonturm.de',
+  ponyhof: 'https://ra.co/clubs/frankfurt',
+  zoom: 'https://zoomfrankfurt.com',
+  silbergold: 'https://silbergold-frankfurt.de',
+  orangepeel: 'https://orangepeel.de',
+  fortuna: 'https://fortuna-irgendwo.de',
+  citybeach: 'https://citybeach-frankfurt.de',
+  studihaus: 'https://asta-frankfurt.de',
+  lokalbahnhof: 'https://lokalbahnhof.de',
+  festhalle: 'https://festhalle.de',
+  batschkapp: 'https://batschkapp.de',
+};
 
 const NOW_MS = Date.now();
 
@@ -239,8 +271,8 @@ function nowEvent(p: NowSeed): DotsEvent {
     currency: 'EUR',
     ageRestriction: p.age ?? null,
     coverImageUrl: null,
-    ticketUrl: null,
-    externalUrl: null,
+    ticketUrl: p.ticket ?? null,
+    externalUrl: p.external ?? VENUE_LINKS[p.venue] ?? null,
     organizerId: null,
     organizer: null,
     sourceUrl: null,

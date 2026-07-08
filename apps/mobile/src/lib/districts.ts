@@ -23,7 +23,7 @@ export interface District {
   nightlife?: boolean;
 }
 
-// Die Basemap (CARTO dark_nolabels) beschriftet NICHTS — die DOTS-Labels sind
+// Die Basemap (CARTO voyager_nolabels) beschriftet NICHTS — die DOTS-Labels sind
 // die einzige Beschriftung der Übersicht (keine Doppelungen möglich).
 // Tiers über minZoom: große Bereiche früh, Nightlife-Spots beim Reinzoomen.
 export const DISTRICTS: District[] = [
@@ -56,18 +56,18 @@ export function visibleDistricts(zoom: number): District[] {
   ).sort((a, b) => b.priority - a.priority);
 }
 
-/** Stil der Stadtteil-Labels: helle, transparente Versalien mit weichem Schatten.
- * Nightlife-Viertel bekommen einen dezenten Lila-Schimmer — sichtbarer, ohne mit
- * den Event-Markern zu konkurrieren. */
+/** Stil der Stadtteil-Labels: dunkle, transparente Versalien mit hellem Halo
+ * (lesbar auf der hellen Basemap). Nightlife-Viertel bekommen einen dezenten
+ * Lila-Ton — sichtbarer, ohne mit den Event-Markern zu konkurrieren. */
 export const DISTRICT_CSS = `
 .dots-district-icon{background:transparent!important;border:0!important;}
 .dots-district{display:flex;align-items:center;justify-content:center;width:170px;height:20px;
-  white-space:nowrap;color:rgba(255,255,255,.82);font-size:12px;font-weight:700;letter-spacing:.6px;
+  white-space:nowrap;color:rgba(52,46,90,.78);font-size:12px;font-weight:700;letter-spacing:.6px;
   text-transform:uppercase;
-  text-shadow:0 1px 8px rgba(0,0,0,.75),0 0 3px rgba(0,0,0,.55);
+  text-shadow:0 1px 6px rgba(255,255,255,.9),0 0 3px rgba(255,255,255,.8);
   transition:opacity .2s ease;pointer-events:none;}
-.dots-district.is-night{color:rgba(224,205,255,.95);
-  text-shadow:0 0 14px rgba(147,102,255,.6),0 1px 8px rgba(0,0,0,.8),0 0 3px rgba(0,0,0,.6);}
+.dots-district.is-night{color:rgba(112,66,220,.92);
+  text-shadow:0 0 14px rgba(167,139,250,.5),0 1px 6px rgba(255,255,255,.9),0 0 3px rgba(255,255,255,.8);}
 .dots-district.is-dim{opacity:.5;}
 `;
 
