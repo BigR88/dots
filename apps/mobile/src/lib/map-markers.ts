@@ -61,6 +61,19 @@ function esc(s: string): string {
  * beide Hosts identisch eingespielt — Web per <style>, nativ im HTML-<head>.
  */
 export const MARKER_CSS = `
+/* Karten-Typografie: expliziter System-Stack DIREKT auf dem Leaflet-Container.
+   Leaflet-Panes hängen außerhalb des RN-Web-Style-Trees — "inherit" würde auf
+   die Browser-Serif (Times) zurückfallen. -apple-system liefert SF Pro in
+   iOS-WKWebView/Safari, system-ui deckt Chromium/Electron/Android ab.
+   font-synthesis:none: kein Faux-Bold, falls ein Fallback-Font kein 800 hat.
+   BEWUSST kein globales -webkit-font-smoothing: antialiased hilft nur bei
+   Hell-auf-Dunkel (s. Pills/Cluster) und würde die dunklen Bezirks-Versalien
+   auf der hellen Karte ausdünnen. */
+.leaflet-container{
+  font-family:-apple-system,BlinkMacSystemFont,system-ui,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  font-synthesis:none;
+  -webkit-text-size-adjust:100%;
+}
 /* BEWUSST kein CSS-Filter auf .leaflet-tile-pane: ein Filter über allen Kacheln
    zwingt Mobile-GPUs bei jedem Pan/Zoom-Frame durch einen Repaint — Voyager ist
    hell genug, die Marker tragen auch ungefiltert. */
@@ -84,7 +97,14 @@ export const MARKER_CSS = `
 .dots-dot{position:relative;border-radius:50%;display:flex;align-items:center;justify-content:center;
   border:1.5px solid rgba(255,255,255,.9);box-sizing:border-box;color:#fff;line-height:1;
   transition:transform .15s ease;}
-.dots-dot__n{font-weight:800;color:#fff;}
+/* Dot-Zahl: Tabellenziffern, damit der Count beim Zoomen/Filtern nicht in der
+   Breite springt; antialiased gegen Subpixel-Farbsäume (Weiß auf Kategoriefarbe);
+   Mikro-Schatten stabilisiert die Zahl auf hellen Markerfarben. Kein negatives
+   Tracking — bei 11–13px dürfen sich Ziffern nicht berühren. */
+.dots-dot__n{font-weight:800;color:#fff;line-height:1;letter-spacing:0;
+  font-variant-numeric:tabular-nums lining-nums;font-feature-settings:"tnum" 1;
+  -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;
+  text-shadow:0 1px 1px rgba(0,0,0,.18);}
 .dots-dot.is-sel{border-color:#fff;z-index:1000;}
 /* Atmender Energie-Halo hinter Trending-/Live-Markern (Farbe inline via --halo).
    Zentrier-Transform + Ruhe-Opacity liegen im Basis-Stil, damit der Halo auch
@@ -101,8 +121,16 @@ export const MARKER_CSS = `
   background:radial-gradient(circle at 32% 26%, rgba(84,66,160,.95) 0%, rgba(26,20,52,.95) 70%);
   border:1.5px solid rgba(196,182,255,.8);box-sizing:border-box;color:#fff;line-height:1;
   box-shadow:0 0 0 4px rgba(108,92,255,.14),0 0 20px rgba(108,92,255,.35),0 4px 16px rgba(31,26,64,.3);}
-.dots-cluster__n{font-weight:800;letter-spacing:-.3px;}
-.dots-cluster__u{font-size:8px;font-weight:700;letter-spacing:.5px;opacity:.72;margin-top:2px;text-transform:uppercase;}
+/* Cluster-Zahl: Tracking in em statt fixem px — skaliert mit der dynamischen
+   Größe (d*0.38). "EVENTS" 9px/600 gesperrt: kleine Versalien brauchen MEHR
+   Tracking und WENIGER Fett, sonst bluten sie auf dem dunklen Glas zu; die
+   Opacity gleicht das Antialiasing-Ausdünnen aus (.78 statt .72). */
+.dots-cluster__n{font-weight:800;line-height:1;letter-spacing:-.02em;
+  font-variant-numeric:tabular-nums lining-nums;font-feature-settings:"tnum" 1;
+  -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;}
+.dots-cluster__u{font-size:9px;font-weight:600;letter-spacing:.09em;line-height:1;
+  opacity:.78;margin-top:2px;text-transform:uppercase;
+  -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;}
 .dots-ring{position:absolute;inset:-8px;border-radius:50%;border:3px solid ${ACCENT};
   pointer-events:none;animation:dots-ping 1.7s cubic-bezier(0,0,.2,1) infinite;}
 /* „Läuft jetzt": sanfter, langsamer Puls in Kategorie-Farbe (border-color inline). */
@@ -113,14 +141,21 @@ export const MARKER_CSS = `
 /* Deckkraft trägt die Lesbarkeit — BEWUSST kein backdrop-filter: die Labels
    bewegen sich mit jedem Karten-Frame, Blur dahinter müsste pro Frame neu
    berechnet werden (spürbares Ruckeln auf Mobile). */
+/* Venue-Pill: neutraler Lauf statt negativem Tracking (unter 12px kostet das
+   nur Lesbarkeit — Tightening gehört in die App-Headlines); antialiased, weil
+   Weiß auf dunklem Glas sonst auf Retina klobig franst. Sub-Zeile 500 statt 600:
+   klarer Gewichtskontrast zur 700er-Hauptzeile = ruhigere Zwei-Ebenen-Pill. */
 .dots-label{position:absolute;top:calc(100% + 6px);left:50%;transform:translateX(-50%);
   max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-  background:rgba(13,12,22,.9);color:#fff;font-size:11px;font-weight:700;letter-spacing:-.1px;
+  background:rgba(13,12,22,.9);color:#fff;font-size:11px;font-weight:700;letter-spacing:0;line-height:1.2;
   padding:4px 9px;border-radius:9px;border:1px solid rgba(255,255,255,.16);
-  text-shadow:0 1px 2px rgba(0,0,0,.55);
+  text-shadow:0 1px 2px rgba(0,0,0,.35);
+  -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;
   box-shadow:0 6px 18px rgba(0,0,0,.42),inset 0 1px 0 rgba(255,255,255,.08);
   text-align:center;pointer-events:none;}
-.dots-label__sub{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;font-size:10px;font-weight:600;opacity:.8;margin-top:1px;letter-spacing:0;}
+.dots-label__sub{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;
+  font-size:10px;font-weight:500;opacity:.8;margin-top:1px;letter-spacing:.01em;line-height:1.25;
+  font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1;}
 .dots-user{width:22px;height:22px;}
 .dots-user::before{content:'';position:absolute;inset:0;border-radius:50%;background:rgba(108,92,255,.35);animation:dots-pulse 1.8s ease-out infinite;}
 .dots-user::after{content:'';position:absolute;top:50%;left:50%;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;background:${ACCENT};border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);}
@@ -161,7 +196,9 @@ export function buildMarkerIcon(
   const hot = !!m.hot && !m.past;
   const dot = markerSize(m.intensity, m.count, selected, hot);
   const box = dot + MARKER_HIT_PAD * 2; // transparenter Tap-Halo rundherum
-  const numFont = Math.max(10, Math.round(dot * 0.46));
+  // Min. 11px (10px Weiß-auf-Farbe ist auf non-Retina die Verlässlichkeitsgrenze);
+  // zweistellige Counts einen Tick kleiner, sonst sprengt die Ziffernbreite den Kreis.
+  const numFont = Math.max(11, Math.round(dot * (m.count >= 10 ? 0.4 : 0.46)));
   const multi = m.count > 1;
 
   // Ausgewählter Marker mit kräftigem Lila-Ring + Glow; Trending-Marker leuchten
@@ -239,7 +276,7 @@ export function buildClusterIcon(c: ClusterInput): MarkerIcon {
   const html =
     `<div class="dots-marker" style="width:${box}px;height:${box}px;">${halo}` +
     `<div class="dots-cluster" style="width:${d}px;height:${d}px">` +
-    `<span class="dots-cluster__n" style="font-size:${Math.round(d * 0.38)}px">${c.count}</span>${sub}</div>` +
+    `<span class="dots-cluster__n" style="font-size:${Math.round(d * (c.count >= 100 ? 0.3 : 0.38))}px">${c.count}</span>${sub}</div>` +
     `</div>`;
   return {
     html,

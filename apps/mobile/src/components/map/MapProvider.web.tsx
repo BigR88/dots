@@ -95,7 +95,10 @@ function injectMarkerStyles() {
   if (document.getElementById(STYLE_ID)) return;
   const style = document.createElement('style');
   style.id = STYLE_ID;
-  style.textContent = `${MARKER_CSS}\n${DISTRICT_CSS}\n${HOT_AREA_CSS}\n.leaflet-container{font-family:inherit;}`;
+  // Kein font-family-Override mehr: Leaflet-Panes hängen außerhalb des RN-Web-
+  // Style-Trees, "inherit" fiele auf die Browser-Serif (Times) zurück — der
+  // explizite System-Stack lebt jetzt in MARKER_CSS (geteilt mit dem WebView-Host).
+  style.textContent = `${MARKER_CSS}\n${DISTRICT_CSS}\n${HOT_AREA_CSS}`;
   document.head.appendChild(style);
 }
 

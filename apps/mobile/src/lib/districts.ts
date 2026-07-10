@@ -56,18 +56,24 @@ export function visibleDistricts(zoom: number): District[] {
   ).sort((a, b) => b.priority - a.priority);
 }
 
-/** Stil der Stadtteil-Labels: dunkle, transparente Versalien mit hellem Halo
- * (lesbar auf der hellen Basemap). Nightlife-Viertel bekommen einen dezenten
- * Lila-Ton — sichtbarer, ohne mit den Event-Markern zu konkurrieren. */
+/** Stil der Stadtteil-Labels: gesperrte, zurücktretende Versalien im Karten-
+ * handwerk-Stil — 600er-Gewicht mit .13em-Sperrung (klassisches Gebiets-Tracking)
+ * statt Fett: Gebiete geben Orientierung, POI-Pills tragen. Dreistufiger Halo mit
+ * hartem 1px-Kern (Kantenschärfe bei 11px) und weichen Stufen im Basemap-Beige
+ * statt Reinweiß — verschmilzt mit dem Grund statt weiße Flecken zu bilden.
+ * padding-left kompensiert den Trailing-Space der Sperrung (re-zentriert optisch,
+ * wirkt nur zusammen mit der zentrierenden Flex-Box). "case" 1: SF Pro setzt
+ * versalien-optimierte Bindestriche ("ALT-SACHSENHAUSEN"); Fallbacks ignorieren es. */
 export const DISTRICT_CSS = `
 .dots-district-icon{background:transparent!important;border:0!important;}
 .dots-district{display:flex;align-items:center;justify-content:center;width:170px;height:20px;
-  white-space:nowrap;color:rgba(52,46,90,.78);font-size:12px;font-weight:700;letter-spacing:.6px;
-  text-transform:uppercase;
-  text-shadow:0 1px 6px rgba(255,255,255,.9),0 0 3px rgba(255,255,255,.8);
+  white-space:nowrap;color:rgba(52,46,90,.72);font-size:11px;font-weight:600;line-height:1;
+  letter-spacing:.13em;padding-left:.13em;text-transform:uppercase;
+  font-feature-settings:"case" 1;
+  text-shadow:0 0 1px rgba(255,255,255,.95),0 0 3px rgba(242,239,233,.9),0 1px 4px rgba(242,239,233,.7);
   transition:opacity .2s ease;pointer-events:none;}
-.dots-district.is-night{color:rgba(112,66,220,.92);
-  text-shadow:0 0 14px rgba(167,139,250,.5),0 1px 6px rgba(255,255,255,.9),0 0 3px rgba(255,255,255,.8);}
+.dots-district.is-night{color:rgba(112,66,220,.9);font-weight:700;
+  text-shadow:0 0 1px rgba(255,255,255,.95),0 0 4px rgba(255,255,255,.85),0 1px 5px rgba(242,239,233,.75),0 0 14px rgba(167,139,250,.4);}
 .dots-district.is-dim{opacity:.5;}
 `;
 
