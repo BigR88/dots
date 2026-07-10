@@ -3,11 +3,12 @@ import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useMemo } from 'react';
-import { Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FIXTURE_FRIENDS } from '@dots/shared';
 import { NextPlanCard } from '@/components/profile/NextPlanCard';
 import { GradientText } from '@/components/GradientText';
+import { MapToast } from '@/components/MapToast';
 import { ProfileHeaderCard } from '@/components/profile/ProfileHeaderCard';
 import { listEventsByIds } from '@/data/events';
 import { isSupabaseConfigured } from '@/data/supabase';
@@ -17,6 +18,8 @@ import { pickAvatar, useAvatar } from '@/hooks/use-avatar';
 import { useFavoriteIds } from '@/hooks/use-favorites';
 import { useFriendOverview } from '@/hooks/use-friends';
 import { useMyProfile } from '@/hooks/use-profile';
+import { useToast } from '@/hooks/use-toast';
+import { shareText } from '@/lib/share';
 import { DEMO_DISPLAY_NAME, suggestUsername } from '@/lib/username';
 import { useTheme } from '@/theme/theme';
 import { PAGE_TITLE } from '@/theme/typography';
@@ -60,14 +63,11 @@ export default function ProfileScreen() {
     );
   }, [planned]);
 
-  const onShare = () => {
-    try {
-      void Share.share({
-        message: `Finde mich auf dots. — füg mich hinzu: @${username}`,
-      }).catch(() => undefined);
-    } catch {
-      /* Share auf manchen Plattformen nicht verfügbar — bewusst ignorieren. */
-    }
+  const { toast, showToast } = useToast();
+  const onShare = async () => {
+    const outcome = await shareText(`Finde mich auf dots. — füg mich hinzu: @${username}`);
+    if (outcome === 'copied') showToast('In die Zwischenablage kopiert');
+    else if (outcome === 'failed') showToast('Teilen wird hier nicht unterstützt');
   };
 
   return (
@@ -149,6 +149,9 @@ export default function ProfileScreen() {
         </View>
 
       </ScrollView>
+
+      {/* Rückmeldung des Zwischenablage-Fallbacks (Web ohne Share-Sheet) */}
+      <MapToast message={toast} top={insets.top + 16} />
     </View>
   );
 }

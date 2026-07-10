@@ -8,7 +8,6 @@ import {
   Linking,
   Pressable,
   ScrollView,
-  Share,
   StyleSheet,
   Text,
   View,
@@ -23,6 +22,7 @@ import { FriendPickerModal } from '@/components/FriendPickerModal';
 import { GlassButton } from '@/components/GlassButton';
 import { GlassCard } from '@/components/GlassCard';
 import { InfoRow } from '@/components/InfoRow';
+import { MapToast } from '@/components/MapToast';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { ScreenBackground } from '@/components/ScreenBackground';
 import { sendMessage } from '@/data/chat';
@@ -30,9 +30,11 @@ import { getEventById } from '@/data/events';
 import { logEventClick } from '@/data/social';
 import { isSupabaseConfigured } from '@/data/supabase';
 import { useAuth } from '@/hooks/use-auth';
+import { useToast } from '@/hooks/use-toast';
 import { appendToThread } from '@/lib/chat-store';
 import { hexA } from '@/lib/color';
 import { formatDateTime, formatPrice, isFree } from '@/lib/format';
+import { shareText } from '@/lib/share';
 import { useTheme } from '@/theme/theme';
 
 function primaryCta(e: DotsEvent): { label: string; url: string } {
@@ -53,6 +55,7 @@ export default function EventDetailScreen() {
   const { session } = useAuth();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [showFriendPicker, setShowFriendPicker] = useState(false);
+  const { toast, showToast } = useToast();
 
   const { data: event, isLoading } = useQuery({
     queryKey: ['event', id],
@@ -90,8 +93,13 @@ export default function EventDetailScreen() {
     const q = encodeURIComponent(`${event.venue?.name ?? ''} ${event.venue?.address ?? 'Frankfurt'}`);
     Linking.openURL(`https://maps.apple.com/?q=${q}`);
   };
-  const onShare = () =>
-    Share.share({ message: `${event.title} — ${formatDateTime(event.startAt)} · ${event.venue?.name ?? 'Frankfurt'} (via dots)` });
+  const onShare = async () => {
+    const outcome = await shareText(
+      `${event.title} — ${formatDateTime(event.startAt)} · ${event.venue?.name ?? 'Frankfurt'} (via dots)`,
+    );
+    if (outcome === 'copied') showToast('In die Zwischenablage kopiert');
+    else if (outcome === 'failed') showToast('Teilen wird hier nicht unterstützt');
+  };
 
   return (
     <ScreenBackground>
@@ -166,6 +174,9 @@ export default function EventDetailScreen() {
           )}
         </View>
       </ScrollView>
+
+      {/* Rückmeldung des Zwischenablage-Fallbacks (Web ohne Share-Sheet) */}
+      <MapToast message={toast} top={insets.top + 16} />
 
       {/* Sticky Glas-Action-Bar */}
       <View style={[styles.footerWrap, { paddingBottom: insets.bottom + 10 }]} pointerEvents="box-none">
