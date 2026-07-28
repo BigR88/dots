@@ -17,12 +17,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { DotsEvent, GeoPoint } from '@dots/shared';
 import { formatDay, formatPrice, formatTime } from '@/lib/format';
 import { displayTimeStatus } from '@/lib/event-time';
-import { canOpenRoute, openRoute } from '@/lib/maps-link';
+import { canOpenRoute } from '@/lib/maps-link';
 import type { VenueGroup } from '@/lib/venues';
+import { useRouteChooser } from '@/hooks/use-route-chooser';
 import { useTheme } from '@/theme/theme';
 import { CategoryBadge } from './CategoryBadge';
 import { DistanceLabel } from './DistanceLabel';
 import { EventTimeStatusBadge } from './EventTimeStatusBadge';
+import { RouteChooserSheet } from './RouteChooserSheet';
 
 const USE_NATIVE_DRIVER = Platform.OS !== 'web';
 const CLOSED_Y = 720; // weit unterhalb des Bildschirms (für Slide-out)
@@ -53,6 +55,7 @@ export function EventBottomSheet({
   const t = useTheme();
   const insets = useSafeAreaInsets();
   const single = group.events.length === 1 ? group.events[0] : null;
+  const { promptRoute, chooserProps } = useRouteChooser();
 
   const ty = useRef(new Animated.Value(CLOSED_Y)).current;
   const fade = useRef(new Animated.Value(0)).current;
@@ -119,12 +122,15 @@ export function EventBottomSheet({
             userLocation={userLocation}
             status={displayTimeStatus(single, now, liveContext)}
             onOpen={() => onOpenEvent(single.id)}
+            onRoute={promptRoute}
             onClose={close}
           />
         ) : (
           <MultiEvents group={group} now={now} liveContext={liveContext} onOpenEvent={onOpenEvent} onClose={close} />
         )}
       </Animated.View>
+
+      <RouteChooserSheet {...chooserProps} />
     </View>
   );
 }
@@ -135,12 +141,14 @@ function SingleEvent({
   userLocation,
   status,
   onOpen,
+  onRoute,
   onClose,
 }: {
   event: DotsEvent;
   userLocation: GeoPoint | null;
   status: ReturnType<typeof displayTimeStatus>;
   onOpen: () => void;
+  onRoute: (event: DotsEvent) => void;
   onClose: () => void;
 }) {
   const t = useTheme();
@@ -217,7 +225,7 @@ function SingleEvent({
 
         {showRoute ? (
           <Pressable
-            onPress={() => void openRoute(event)}
+            onPress={() => onRoute(event)}
             accessibilityLabel="Route öffnen"
             style={({ pressed }) => [
               styles.routeBtn,

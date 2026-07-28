@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import 'leaflet/dist/leaflet.css';
 import { FRANKFURT_CENTER } from '@/lib/geo';
 import { buildClusterIcon, buildMarkerIcon, MARKER_CSS, MARKER_ZOOM } from '@/lib/map-markers';
@@ -110,6 +111,7 @@ export function MapProvider({
   onSelectMarker,
   focus,
 }: MapProviderProps) {
+  const insets = useSafeAreaInsets();
   const mapRef = useRef<any>(null);
   const fixSizeRef = useRef<(() => void) | null>(null);
   const markersRef = useRef<any>(null);
@@ -545,6 +547,10 @@ export function MapProvider({
   return (
     <View style={styles.fill}>
       <View nativeID={MAP_ID} style={styles.fill} />
+      {/* Lizenzpflichtige Quellenangabe (OSM/ODbL + CARTO) — dezent, nicht tippbar. */}
+      <View pointerEvents="none" style={[styles.attribution, { bottom: insets.bottom + 4 }]}>
+        <Text style={styles.attributionText}>© OpenStreetMap-Mitwirkende · © CARTO</Text>
+      </View>
       {loadError && (
         <View style={styles.fallback}>
           <Text style={styles.fallbackTitle}>Karte konnte nicht geladen werden.</Text>
@@ -567,6 +573,17 @@ export function MapProvider({
 
 const styles = StyleSheet.create({
   fill: { flex: 1, overflow: 'hidden' },
+  attribution: {
+    position: 'absolute',
+    left: 6,
+    bottom: 4,
+    zIndex: 500,
+    borderRadius: 6,
+    paddingHorizontal: 5,
+    paddingVertical: 1.5,
+    backgroundColor: 'rgba(255,255,255,0.65)',
+  },
+  attributionText: { fontSize: 9, color: '#4a4664' },
   fallback: {
     position: 'absolute',
     top: 0,
@@ -586,7 +603,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 10,
     borderRadius: 999,
-    backgroundColor: '#6C5CE7',
+    backgroundColor: '#6C5CFF',
   },
   fallbackBtnText: { color: '#fff', fontSize: 13.5, fontWeight: '800' },
 });

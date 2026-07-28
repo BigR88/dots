@@ -9,6 +9,7 @@ import { FriendsEmpty } from '@/components/friends/FriendsEmpty';
 import { SearchBar } from '@/components/friends/SearchBar';
 import { SectionHeader } from '@/components/friends/SectionHeader';
 import { UserRow } from '@/components/friends/UserRow';
+import { UserActionsSheet } from '@/components/UserActionsSheet';
 import { useFriendActions, useFriendOverview, useUserSearch } from '@/hooks/use-friends';
 import { colorFromId } from '@/lib/avatar-color';
 import { useTheme } from '@/theme/theme';
@@ -26,6 +27,8 @@ export default function AddFriendsScreen() {
 
   const [query, setQuery] = useState('');
   const deferredQuery = useDeferredValue(query);
+  // Melden & Blockieren (⋯) für fremde Nutzer in Suche und Anfragen.
+  const [actionsUser, setActionsUser] = useState<{ id: string; name: string } | null>(null);
 
   const overview = useFriendOverview();
   const search = useUserSearch(deferredQuery);
@@ -83,6 +86,12 @@ export default function AddFriendsScreen() {
                     name={u.name}
                     avatarColor={colorFromId(u.id)}
                     subtitle={u.username ? `@${u.username}` : undefined}>
+                    <Pressable
+                      onPress={() => setActionsUser({ id: u.id, name: u.name })}
+                      hitSlop={8}
+                      accessibilityLabel={`Optionen zu ${u.name}`}>
+                      <Ionicons name="ellipsis-horizontal" size={20} color={t.colors.textMuted} />
+                    </Pressable>
                     <AddButton
                       busy={request.isPending && request.variables === u.id}
                       onPress={() => request.mutate(u.id)}
@@ -113,6 +122,7 @@ export default function AddFriendsScreen() {
                   avatarColor={colorFromId(req.user.id)}
                   onAccept={() => accept.mutate(req.friendshipId)}
                   onDecline={() => remove.mutate(req.friendshipId)}
+                  onMore={() => setActionsUser({ id: req.user.id, name: req.user.name })}
                   accepting={accept.isPending && accept.variables === req.friendshipId}
                   declining={remove.isPending && remove.variables === req.friendshipId}
                 />
@@ -147,6 +157,16 @@ export default function AddFriendsScreen() {
           </View>
         )}
       </ScrollView>
+
+      {/* Melden & Blockieren (App-Store-Pflicht bei Nutzer-Inhalten) */}
+      {actionsUser && (
+        <UserActionsSheet
+          visible
+          onClose={() => setActionsUser(null)}
+          userId={actionsUser.id}
+          userName={actionsUser.name}
+        />
+      )}
     </View>
   );
 }

@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FIXTURE_FRIENDS } from '@dots/shared';
 import { NextPlanCard } from '@/components/profile/NextPlanCard';
 import { GradientText } from '@/components/GradientText';
+import { GuestPrompt } from '@/components/GuestPrompt';
 import { MapToast } from '@/components/MapToast';
 import { ProfileHeaderCard } from '@/components/profile/ProfileHeaderCard';
 import { listEventsByIds } from '@/data/events';
@@ -25,6 +26,21 @@ import { useTheme } from '@/theme/theme';
 import { PAGE_TITLE } from '@/theme/typography';
 
 export default function ProfileScreen() {
+  const { session, isGuest } = useAuth();
+  if (isSupabaseConfigured && isGuest && !session) {
+    return (
+      <GuestPrompt
+        icon="person-circle-outline"
+        title="Dein Profil wartet"
+        message="Leg ein kostenloses Konto an, um ein Profil mit @username zu erstellen, Zusagen zu sammeln und gefunden zu werden."
+        showSettingsLink
+      />
+    );
+  }
+  return <ProfileContent />;
+}
+
+function ProfileContent() {
   const t = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();

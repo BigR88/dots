@@ -2,17 +2,25 @@
   "expo": {
     "name": "dots",
     "slug": "dots",
-    "version": "0.1.0",
+    "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "dots",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "bundleIdentifier": "app.dots.frankfurt",
+      "buildNumber": "1",
+      "supportsTablet": false,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "CFBundleDevelopmentRegion": "de",
+        "CFBundleLocalizations": ["de"]
+      }
     },
     "android": {
+      "package": "app.dots.frankfurt",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#6C5CFF",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
@@ -28,17 +36,24 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#6C5CE7",
-          "android": {
-            "image": "./assets/images/splash-icon.png",
-            "imageWidth": 76
-          }
+          "backgroundColor": "#6C5CFF",
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 120
         }
       ],
       [
         "expo-location",
         {
+          "locationWhenInUsePermission": "dots nutzt deinen Standort nur, um dir Events in deiner Nähe zu zeigen und Entfernungen anzuzeigen.",
           "locationAlwaysAndWhenInUsePermission": "dots nutzt deinen Standort nur, um dir Events in deiner Nähe zu zeigen und Entfernungen anzuzeigen."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "dots braucht Zugriff auf deine Fotos, damit du ein Profilbild auswählen kannst.",
+          "cameraPermission": false,
+          "microphonePermission": false
         }
       ]
     ],

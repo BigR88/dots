@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FIXTURE_FRIENDS } from '@dots/shared';
@@ -13,6 +13,7 @@ import { GlassCard } from '@/components/GlassCard';
 import { GradientAvatar } from '@/components/profile/GradientAvatar';
 import { ProfileStats } from '@/components/profile/ProfileStats';
 import { SectionLabel } from '@/components/profile/SectionLabel';
+import { UserActionsSheet } from '@/components/UserActionsSheet';
 import { listEventsByIds } from '@/data/events';
 import { fetchFriendsAttendance } from '@/data/friends';
 import { isSupabaseConfigured } from '@/data/supabase';
@@ -37,6 +38,7 @@ export default function FriendProfileScreen() {
   const { id, name, color } = useLocalSearchParams<{ id: string; name?: string; color?: string }>();
   const friendId = String(id);
   const demo = friendById(friendId);
+  const [actionsOpen, setActionsOpen] = useState(false);
 
   const displayName = demo?.name ?? (name ? String(name) : 'Freund:in');
   const avatarColor = demo?.color ?? (color ? String(color) : colorFromId(friendId));
@@ -63,9 +65,14 @@ export default function FriendProfileScreen() {
 
   const attending = useMemo(() => sortByStartAsc(attendingRaw ?? []), [attendingRaw]);
   const favorites = useMemo(() => sortByStartAsc(favoriteRaw ?? []), [favoriteRaw]);
-  // Demo: alle anderen Demo-Freunde gelten als Freunde dieser Person.
-  const friends = useMemo(() => FIXTURE_FRIENDS.filter((f) => f.id !== friendId), [friendId]);
-  const friendsCount = isSupabaseConfigured && !demo ? 0 : friends.length;
+  // Demo: alle anderen Demo-Freunde gelten als Freunde dieser Person. Im
+  // Live-Modus sind fremde Freundeslisten (noch) nicht abrufbar → leer, damit
+  // unter echten Profilen keine Fixture-Personen auftauchen.
+  const friends = useMemo(
+    () => (isSupabaseConfigured && !demo ? [] : FIXTURE_FRIENDS.filter((f) => f.id !== friendId)),
+    [friendId, demo],
+  );
+  const friendsCount = friends.length;
 
   const openMessage = () =>
     router.push({
@@ -97,6 +104,17 @@ export default function FriendProfileScreen() {
             <Ionicons name="chevron-back" size={22} color={t.colors.textPrimary} />
           </Pressable>
           <Text style={[styles.title, { color: t.colors.textPrimary }]}>Profil</Text>
+          <View style={{ flex: 1 }} />
+          <Pressable
+            onPress={() => setActionsOpen(true)}
+            hitSlop={8}
+            accessibilityLabel={`Optionen zu ${displayName}`}
+            style={({ pressed }) => [
+              styles.iconBtn,
+              { backgroundColor: t.colors.surface, borderColor: t.colors.border, opacity: pressed ? 0.8 : 1 },
+            ]}>
+            <Ionicons name="ellipsis-horizontal" size={20} color={t.colors.textPrimary} />
+          </Pressable>
         </View>
 
         {/* Profil-Card (ähnlich zum eigenen Profil) */}
@@ -183,6 +201,15 @@ export default function FriendProfileScreen() {
           )}
         </View>
       </ScrollView>
+
+      {/* Melden & Blockieren (App-Store-Pflicht bei Nutzer-Inhalten) */}
+      <UserActionsSheet
+        visible={actionsOpen}
+        onClose={() => setActionsOpen(false)}
+        userId={friendId}
+        userName={displayName}
+        onBlocked={() => router.replace('/friends')}
+      />
     </View>
   );
 }
@@ -200,7 +227,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  title: { fontSize: 22, fontWeight: '900', letterSpacing: -0.6 },
+  title: { fontSize: 22, fontWeight: '900', letterSpacing: -0.4 },
   profileCard: { padding: 18, gap: 14 },
   profileTop: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   identity: { flex: 1, gap: 2 },

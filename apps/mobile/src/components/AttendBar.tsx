@@ -58,8 +58,8 @@ export function AttendBar({ event }: { event: DotsEvent }) {
           </View>
         )}
         <Text style={[styles.infoText, { color: t.colors.textSecondary }]}>
-          <Text style={{ fontWeight: '700', color: t.colors.textPrimary }}>{count}</Text> sind
-          dabei
+          <Text style={{ fontWeight: '700', color: t.colors.textPrimary }}>{count}</Text>
+          {count === 1 ? ' ist dabei' : ' sind dabei'}
           {friends.length > 0 &&
             ` · ${friends.map((f) => f.name).join(', ')} ${friends.length === 1 ? 'geht' : 'gehen'} hin`}
         </Text>

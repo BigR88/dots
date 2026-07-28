@@ -33,8 +33,8 @@ jobs:
         env:
           # Schaltet in app.config.js/+html.tsx den Pages-Unterpfad /dots frei.
           DOTS_PAGES: '1'
-          # Öffentliche Demo läuft ohne Login (Fixtures statt Supabase).
-          EXPO_PUBLIC_AUTH_DISABLED: '1'
+          # Kein Supabase-Env → Demo-Modus (Fixtures, ohne Login-Gate). Der
+          # frühere AUTH_DISABLED-Schalter greift ohnehin nur noch in Dev-Builds.
         run: npx expo export -p web
       - name: SPA-Fallback für tiefe Links
         # Pages liefert für unbekannte Pfade 404.html aus — mit der index.html

@@ -15,24 +15,51 @@ import { FIXTURE_FRIENDS, type DemoFriend, type DotsEvent } from '@dots/shared';
 import { FriendCard } from '@/components/friends/FriendCard';
 import { FriendsEmpty } from '@/components/friends/FriendsEmpty';
 import { FriendsHeader } from '@/components/friends/FriendsHeader';
+import { FriendsHub } from '@/components/friends/FriendsHub';
+import { GroupsView } from '@/components/friends/GroupsView';
 import { SearchBar } from '@/components/friends/SearchBar';
 import { SectionHeader } from '@/components/friends/SectionHeader';
+import { GuestPrompt } from '@/components/GuestPrompt';
 import { ScreenGradient } from '@/components/ScreenGradient';
 import { listEventsByIds } from '@/data/events';
 import { isSupabaseConfigured } from '@/data/supabase';
 import type { FriendProfile } from '@/data/friends';
+import { useAuth } from '@/hooks/use-auth';
 import { useFriendOverview, useFriendsAttendance } from '@/hooks/use-friends';
 import { colorFromId } from '@/lib/avatar-color';
 import { useTheme } from '@/theme/theme';
 
 const matches = (name: string, q: string) => name.toLowerCase().includes(q.trim().toLowerCase());
 
+type HubView = 'hub' | 'friends' | 'groups';
+
 export default function FriendsScreen() {
-  return isSupabaseConfigured ? <LiveFriends /> : <DemoFriends />;
+  const { session, isGuest } = useAuth();
+  // Landing zeigt zwei pulsierende Kreise (Freunde / Gruppen); die Auswahl
+  // öffnet das jeweilige Menü. Zurück-Button führt wieder zum Hub.
+  const [view, setView] = useState<HubView>('hub');
+
+  if (isSupabaseConfigured && isGuest && !session) {
+    return (
+      <GuestPrompt
+        title="Freunde brauchen ein Konto"
+        message="Mit einem kostenlosen Konto findest du Freunde, teilst Events und ihr seht gegenseitig, wer wohin geht."
+      />
+    );
+  }
+
+  if (view === 'hub') {
+    return <FriendsHub onFriends={() => setView('friends')} onGroups={() => setView('groups')} />;
+  }
+  if (view === 'groups') {
+    return <GroupsView onBack={() => setView('hub')} />;
+  }
+  const back = () => setView('hub');
+  return isSupabaseConfigured ? <LiveFriends onBack={back} /> : <DemoFriends onBack={back} />;
 }
 
 // ── Live: echte Freunde über Supabase ───────────────────────────────────────
-function LiveFriends() {
+function LiveFriends({ onBack }: { onBack: () => void }) {
   const t = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -98,6 +125,7 @@ function LiveFriends() {
         }>
         <FriendsHeader
           subtitle="Wer geht wohin?"
+          onBack={onBack}
           onAction={() => router.push('/add-friends')}
           actionLabel="Anfragen & Freunde finden"
           actionBadge={incoming.length}
@@ -130,7 +158,7 @@ function LiveFriends() {
               compact
               icon="search-outline"
               title="Keine Treffer"
-              subtitle={`Niemand in deiner Liste heißt „${deferredQuery.trim()}".`}
+              subtitle={`Niemand in deiner Liste heißt „${deferredQuery.trim()}“.`}
             />
           ) : (
             <View style={styles.grid}>
@@ -154,7 +182,7 @@ function LiveFriends() {
 }
 
 // ── Demo: Fixtures (kein Backend) ───────────────────────────────────────────
-function DemoFriends() {
+function DemoFriends({ onBack }: { onBack: () => void }) {
   const t = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -183,6 +211,7 @@ function DemoFriends() {
         keyboardShouldPersistTaps="handled">
         <FriendsHeader
           subtitle="Wer geht wohin?"
+          onBack={onBack}
           onAction={() => router.push('/add-friends')}
           actionLabel="Anfragen & Freunde finden"
         />
@@ -202,7 +231,7 @@ function DemoFriends() {
               compact
               icon="search-outline"
               title="Keine Treffer"
-              subtitle={`Niemand in deiner Liste heißt „${deferredQuery.trim()}".`}
+              subtitle={`Niemand in deiner Liste heißt „${deferredQuery.trim()}“.`}
             />
           ) : (
             <View style={styles.grid}>

@@ -34,7 +34,7 @@ export function ActiveFilterBar({ categorySlug, quickFilters, sort, search, onPr
   const t = useTheme();
 
   const chips: Chip[] = [];
-  if (search.trim()) chips.push({ key: 'search', label: `„${search.trim()}"` });
+  if (search.trim()) chips.push({ key: 'search', label: `„${search.trim()}“` });
   if (categorySlug) {
     const c = CATEGORIES.find((x) => x.slug === categorySlug);
     if (c) chips.push({ key: 'cat', label: c.name, color: c.color });

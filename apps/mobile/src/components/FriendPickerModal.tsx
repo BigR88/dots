@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FIXTURE_FRIENDS } from '@dots/shared';
 import { isSupabaseConfigured } from '@/data/supabase';
+import { useAuth } from '@/hooks/use-auth';
 import { useFriendOverview } from '@/hooks/use-friends';
 import { colorFromId } from '@/lib/avatar-color';
 import { useTheme } from '@/theme/theme';
@@ -31,6 +32,8 @@ export function FriendPickerModal({ visible, onClose, onPick }: Props) {
   const t = useTheme();
   const insets = useSafeAreaInsets();
   const overview = useFriendOverview();
+  const { session, isGuest, exitGuestMode } = useAuth();
+  const guest = isSupabaseConfigured && isGuest && !session;
 
   const friends: PickableFriend[] = isSupabaseConfigured
     ? (overview.data?.friends ?? []).map((f) => ({ id: f.id, name: f.name, color: colorFromId(f.id) }))
@@ -45,7 +48,23 @@ export function FriendPickerModal({ visible, onClose, onPick }: Props) {
         <View style={[styles.grabber, { backgroundColor: t.colors.border }]} />
         <Text style={[styles.title, { color: t.colors.textPrimary }]}>Mit wem teilen?</Text>
 
-        {friends.length === 0 ? (
+        {guest ? (
+          // Gäste können keine Freunde hinzufügen — ehrlicher Hinweis statt
+          // eines Verweises auf den (für Gäste gesperrten) Freunde-Tab.
+          <>
+            <Text style={[styles.empty, { color: t.colors.textSecondary }]}>
+              Zum Teilen mit Freunden brauchst du ein kostenloses Konto.
+            </Text>
+            <Pressable
+              onPress={() => {
+                onClose();
+                exitGuestMode();
+              }}
+              style={[styles.guestCta, { backgroundColor: t.accent }]}>
+              <Text style={styles.guestCtaText}>Anmelden oder registrieren</Text>
+            </Pressable>
+          </>
+        ) : friends.length === 0 ? (
           <Text style={[styles.empty, { color: t.colors.textSecondary }]}>
             Noch keine Freund:innen. Füge im Freunde-Tab welche hinzu, um Events zu teilen.
           </Text>
@@ -91,4 +110,6 @@ const styles = StyleSheet.create({
   name: { flex: 1, fontSize: 16, fontWeight: '600' },
   cancel: { alignItems: 'center', paddingVertical: 14, marginTop: 4 },
   cancelText: { fontSize: 15, fontWeight: '600' },
+  guestCta: { alignItems: 'center', borderRadius: 14, paddingVertical: 13, marginTop: 4 },
+  guestCtaText: { color: '#fff', fontSize: 15.5, fontWeight: '800' },
 });

@@ -39,12 +39,17 @@ export default function PrivacySettingsScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}
         showsVerticalScrollIndicator={false}>
         <View style={[styles.card, { backgroundColor: t.colors.surface, borderColor: t.colors.border }]}>
+          {/* Noch ein lokaler Stub wie die anderen Optionen — ohne „bald"-Tag
+              würde der Toggle Standort-Teilen versprechen, das es nicht gibt
+              (und der Datenschutzerklärung widersprechen). */}
           <PrivacySettingRow
             icon="navigate"
             label={tr('priv.locationFriends')}
             sub={tr('priv.locationFriends.sub')}
             value={shareLocation}
             onValueChange={setShareLocation}
+            upcoming
+            tagLabel={soon}
           />
           <View style={[styles.divider, { backgroundColor: t.colors.border }]} />
           <PrivacySettingRow
@@ -88,7 +93,7 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingBottom: 8 },
   headerTitle: { fontSize: 22, fontWeight: '900', letterSpacing: -0.4 },
   content: { paddingHorizontal: 16, paddingTop: 12 },
-  card: { borderRadius: 18, borderWidth: StyleSheet.hairlineWidth, padding: 16, gap: 14 },
+  card: { borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, padding: 16, gap: 14 },
   divider: { height: StyleSheet.hairlineWidth, marginLeft: 48 },
   note: { fontSize: 12, lineHeight: 17, marginTop: 10, marginHorizontal: 2 },
 });

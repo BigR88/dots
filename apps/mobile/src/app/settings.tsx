@@ -1,9 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ConfirmSheet } from '@/components/ConfirmSheet';
 import { GradientText } from '@/components/GradientText';
-import { AccountActionCard } from '@/components/profile/AccountActionCard';
+import { AccountActionCard, type AccountAction } from '@/components/profile/AccountActionCard';
 import { PrivacySettingRow } from '@/components/profile/PrivacySettingRow';
 import { SectionLabel } from '@/components/profile/SectionLabel';
 import { SettingsLinkRow } from '@/components/profile/SettingsLinkRow';
@@ -17,9 +19,9 @@ import { useTheme } from '@/theme/theme';
 
 /**
  * Einstellungen — Übersicht mit Drill-down-Zeilen (Profil bearbeiten,
- * Privatsphäre) sowie Karten-Standort und Sprache inline. Erreichbar über das
- * Zahnrad im Profil (und auf der Karte). Voll übersetzt (DE/EN), Sprachwahl
- * wirkt sofort.
+ * Privatsphäre), Karten-Standort, Sprache und Rechtliches. Erreichbar über das
+ * Zahnrad im Profil (Gäste: Link im GuestPrompt). Voll übersetzt (DE/EN),
+ * Sprachwahl wirkt sofort.
  */
 export default function SettingsScreen() {
   const t = useTheme();
@@ -31,7 +33,40 @@ export default function SettingsScreen() {
   const [lang, setLang] = useLanguage();
   const [themePref, setThemePref] = useThemePreference();
   const { request, status } = useLocation();
-  const { signOut } = useAuth();
+  const { signOut, deleteAccount, session, isGuest, exitGuestMode } = useAuth();
+
+  // Konto löschen (App-Store-Pflicht 5.1.1(v)) — nur mit echtem Login sichtbar.
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const runDeleteAccount = async () => {
+    setDeleting(true);
+    setDeleteError(null);
+    const res = await deleteAccount();
+    setDeleting(false);
+    if (res.error) {
+      setDeleteError(res.error);
+      return;
+    }
+    // Session ist weg — das Root-Layout zeigt automatisch wieder das Login-Gate.
+    setConfirmDelete(false);
+  };
+
+  // Gäste sehen „Anmelden" (zurück zum Gate) statt Abmelden/Konto löschen —
+  // als normale (nicht rote) Aktion, denn Anmelden ist nichts Destruktives.
+  const accountActions: AccountAction[] =
+    isGuest && !session
+      ? [{ icon: 'log-in-outline', label: tr('account.signIn'), onPress: exitGuestMode }]
+      : [{ icon: 'log-out-outline', label: tr('account.signOut'), onPress: signOut, danger: true }];
+  if (session) {
+    accountActions.push({
+      icon: 'trash-outline',
+      label: tr('account.delete'),
+      onPress: () => setConfirmDelete(true),
+      danger: true,
+    });
+  }
 
   const toggleLocation = (next: boolean) => {
     // Funktion sofort umschalten (nicht vom Geolocation-Ergebnis abhängig machen);
@@ -42,9 +77,11 @@ export default function SettingsScreen() {
   const denied = status === 'denied';
 
   return (
-    <View style={[styles.root, { backgroundColor: t.colors.background, paddingTop: insets.top + 8 }]}>
+    // Kein paddingTop am Root: Das ConfirmSheet-Overlay (absolutes Kind) würde
+    // sonst um das Padding versetzt und der Backdrop ließe die Statusleiste frei.
+    <View style={[styles.root, { backgroundColor: t.colors.background }]}>
       {/* Header mit Zurück-Button */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <Pressable
           onPress={() => (router.canGoBack() ? router.back() : router.replace('/profile'))}
           hitSlop={8}
@@ -155,12 +192,51 @@ export default function SettingsScreen() {
         </View>
         <Text style={[styles.note, { color: t.colors.textMuted }]}>{tr('lang.note')}</Text>
 
-        {/* Abmelden ganz unten (Standard-Muster) */}
+        {/* Rechtliches (Impressum ist in DE Pflicht; Apple prüft bei UGC-Apps) */}
         <View style={styles.gap} />
-        <AccountActionCard
-          actions={[{ icon: 'log-out-outline', label: tr('account.signOut'), onPress: signOut, danger: true }]}
-        />
+        <SectionLabel title={tr('section.legal')} />
+        <View style={[styles.card, { backgroundColor: t.colors.surface, borderColor: t.colors.border }]}>
+          <SettingsLinkRow
+            icon="shield-checkmark"
+            label={tr('legal.privacy')}
+            sub={tr('legal.privacy.sub')}
+            onPress={() => router.push('/legal/privacy')}
+          />
+          <View style={[styles.divider, { backgroundColor: t.colors.border }]} />
+          <SettingsLinkRow
+            icon="document-text"
+            label={tr('legal.terms')}
+            sub={tr('legal.terms.sub')}
+            onPress={() => router.push('/legal/terms')}
+          />
+          <View style={[styles.divider, { backgroundColor: t.colors.border }]} />
+          <SettingsLinkRow
+            icon="information-circle"
+            label={tr('legal.imprint')}
+            sub={tr('legal.imprint.sub')}
+            onPress={() => router.push('/legal/imprint')}
+          />
+        </View>
+
+        {/* Abmelden / Konto löschen ganz unten (Standard-Muster) */}
+        <View style={styles.gap} />
+        <AccountActionCard actions={accountActions} />
       </ScrollView>
+
+      <ConfirmSheet
+        visible={confirmDelete}
+        title={tr('account.delete.confirmTitle')}
+        message={tr('account.delete.confirmMessage')}
+        confirmLabel={tr('account.delete.confirm')}
+        cancelLabel={tr('common.cancel')}
+        busy={deleting}
+        error={deleteError}
+        onConfirm={() => void runDeleteAccount()}
+        onClose={() => {
+          setConfirmDelete(false);
+          setDeleteError(null);
+        }}
+      />
     </View>
   );
 }
@@ -170,7 +246,7 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingBottom: 8 },
   headerTitle: { fontSize: 22, fontWeight: '900', letterSpacing: -0.4 },
   content: { paddingHorizontal: 16, paddingTop: 12 },
-  card: { borderRadius: 18, borderWidth: StyleSheet.hairlineWidth, padding: 16, gap: 14 },
+  card: { borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, padding: 16, gap: 14 },
   divider: { height: StyleSheet.hairlineWidth, marginLeft: 48 },
   note: { fontSize: 12, lineHeight: 17, marginTop: 10, marginHorizontal: 2 },
   gap: { height: 20 },

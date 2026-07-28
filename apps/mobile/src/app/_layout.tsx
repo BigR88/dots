@@ -8,7 +8,7 @@ import { AuthScreen } from '@/components/AuthScreen';
 import { DeviceFrame } from '@/components/DeviceFrame';
 import { queryClient } from '@/data/query-client';
 import { useAttendanceSync } from '@/hooks/use-attendance';
-import { AUTH_DISABLED, AuthProvider, isSupabaseConfigured, useAuth } from '@/hooks/use-auth';
+import { AUTH_DISABLED, AuthProvider, useAuth } from '@/hooks/use-auth';
 import { useTheme } from '@/theme/theme';
 
 export default function RootLayout() {
@@ -32,12 +32,14 @@ export default function RootLayout() {
 /** Entscheidet, ob Anmelde-Screen oder App gezeigt wird. */
 function AuthGate() {
   const t = useTheme();
-  const { session, loading } = useAuth();
+  const { isAuthenticated, loading, isGuest } = useAuth();
   useAttendanceSync(); // hält „Bin dabei" mit der Session synchron
 
-  // Ohne Backend (Demo) oder mit Dev-Bypass (AUTH_DISABLED) kein Gate — App
-  // direkt zeigen. Login kommt später; der Code dafür bleibt erhalten.
-  if (isSupabaseConfigured && !AUTH_DISABLED) {
+  // Login-Gate: ohne Anmeldung erscheint der Auth-Screen (Anmelden/Registrieren
+  // oder „Ohne Konto entdecken"). Greift auch in der Web-Demo (Demo-Login).
+  // Nur der ausdrückliche Dev-Bypass (AUTH_DISABLED) überspringt das Gate.
+  // Gäste kommen durch; Social-Features fordern sie ggf. zum Anmelden auf.
+  if (!AUTH_DISABLED) {
     if (loading) {
       return (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: t.colors.background }}>
@@ -45,7 +47,7 @@ function AuthGate() {
         </View>
       );
     }
-    if (!session) return <AuthScreen />;
+    if (!isAuthenticated && !isGuest) return <AuthScreen />;
   }
 
   return (
@@ -56,6 +58,8 @@ function AuthGate() {
       <Stack.Screen name="privacy-settings" />
       <Stack.Screen name="add-friends" />
       <Stack.Screen name="friend/[id]" />
+      <Stack.Screen name="group/[id]" />
+      <Stack.Screen name="group-details/[id]" />
       <Stack.Screen name="plans" />
       <Stack.Screen name="edit-profile" options={{ presentation: 'modal' }} />
     </Stack>

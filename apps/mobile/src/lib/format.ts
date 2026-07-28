@@ -24,7 +24,7 @@ export function formatDateTime(iso: string): string {
 
 // Kompakte Preis-Anzeige fürs Badge.
 export function formatPrice(e: Pick<DotsEvent, 'priceType' | 'priceMin' | 'priceMax' | 'currency'>): string {
-  if (e.priceType === 'free') return 'Free';
+  if (e.priceType === 'free') return 'Kostenlos';
   if (e.priceType === 'donation') return 'Spende';
   if (e.priceType === 'unknown') return '–';
   const sym = e.currency === 'EUR' ? '€' : e.currency;

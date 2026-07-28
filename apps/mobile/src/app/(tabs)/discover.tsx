@@ -50,7 +50,7 @@ export default function DiscoverScreen() {
     origin: location,
     search: deferredSearch,
   };
-  const { data, isLoading, refetch, isRefetching } = useQuery({
+  const { data, isLoading, isError, refetch, isRefetching } = useQuery({
     queryKey: ['events', query],
     queryFn: () => listEvents(query),
   });
@@ -134,10 +134,17 @@ export default function DiscoverScreen() {
                 <SkeletonCard />
                 <SkeletonCard />
               </View>
+            ) : isError ? (
+              // Server nicht erreichbar ≠ „keine Events" — ehrlich sagen, was los ist.
+              <EmptyState
+                icon="cloud-offline-outline"
+                title="Events konnten nicht geladen werden"
+                subtitle="Prüfe deine Verbindung und zieh die Liste zum Aktualisieren nach unten."
+              />
             ) : deferredSearch ? (
               <EmptyState
                 title="Keine Treffer"
-                subtitle={`Zu „${deferredSearch}" gibt es in dieser Auswahl nichts. Probier einen anderen Begriff, Tab oder Filter.`}
+                subtitle={`Zu „${deferredSearch}“ gibt es in dieser Auswahl nichts. Probier einen anderen Begriff, Tab oder Filter.`}
               />
             ) : (
               <EmptyState

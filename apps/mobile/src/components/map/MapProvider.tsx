@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 import type { GeoPoint } from '@dots/shared';
 import { buildClusterIcon, buildMarkerIcon, MARKER_CSS, MARKER_ZOOM } from '@/lib/map-markers';
@@ -221,6 +222,7 @@ export function MapProvider({
   focus,
 }: MapProviderProps) {
   const webRef = useRef<WebView>(null);
+  const insets = useSafeAreaInsets();
   const ready = useRef(false);
   const lastFocus = useRef(0);
   const [zoom, setZoom] = useState(FRANKFURT_ZOOM);
@@ -361,10 +363,24 @@ export function MapProvider({
         automaticallyAdjustContentInsets={false}
         style={styles.fill}
       />
+      {/* Lizenzpflichtige Quellenangabe (OSM/ODbL + CARTO) — dezent, nicht tippbar. */}
+      <View pointerEvents="none" style={[styles.attribution, { bottom: insets.bottom + 4 }]}>
+        <Text style={styles.attributionText}>© OpenStreetMap-Mitwirkende · © CARTO</Text>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   fill: { flex: 1, overflow: 'hidden', backgroundColor: '#f2efe9' },
+  attribution: {
+    position: 'absolute',
+    left: 6,
+    bottom: 4,
+    borderRadius: 6,
+    paddingHorizontal: 5,
+    paddingVertical: 1.5,
+    backgroundColor: 'rgba(255,255,255,0.65)',
+  },
+  attributionText: { fontSize: 9, color: '#4a4664' },
 });

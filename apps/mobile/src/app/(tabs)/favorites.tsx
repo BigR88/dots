@@ -45,7 +45,7 @@ export default function FavoritesScreen() {
           <EmptyState
             icon="heart-outline"
             title="Noch keine Favoriten"
-            subtitle="Tippe auf das Herz bei einem Event, um es hier zu speichern — direkt auf der Karte in der Liste oder im Detail."
+            subtitle="Tippe auf das Herz bei einem Event, um es hier zu speichern — auf der Karte, in der Liste oder im Detail."
           />
         }
         contentContainerStyle={[

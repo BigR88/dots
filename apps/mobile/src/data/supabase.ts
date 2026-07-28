@@ -10,10 +10,13 @@ const anonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 export const isSupabaseConfigured = Boolean(url && anonKey);
 
 // Dev-Schalter: Login-Gate überspringen, um ohne Konto an der App zu arbeiten.
-// Der komplette Login-Code bleibt erhalten — zum Aktivieren später einfach
-// EXPO_PUBLIC_AUTH_DISABLED entfernen bzw. auf 0 setzen. Anonyme Nutzer dürfen
-// laut RLS veröffentlichte Events/Venues lesen, daher bleibt die Karte nutzbar.
-export const AUTH_DISABLED = process.env.EXPO_PUBLIC_AUTH_DISABLED === '1';
+// Greift NUR in Dev-Builds (__DEV__) — ein Release-/Store-Build kann das Gate
+// damit nie versehentlich offen lassen, selbst wenn die Variable gesetzt ist.
+// (Die öffentliche Web-Demo läuft ohne Supabase-Config und braucht den Schalter
+// nicht: ohne Backend zeigt das Root-Layout ohnehin kein Gate.) Anonyme Nutzer
+// dürfen laut RLS veröffentlichte Events/Venues lesen, daher bleibt die Karte
+// auch ohne Login nutzbar.
+export const AUTH_DISABLED = __DEV__ && process.env.EXPO_PUBLIC_AUTH_DISABLED === '1';
 
 // SSR-sicherer Speicher: Beim serverseitigen Rendern (Expo Web, Node) gibt es
 // kein `window` — dort In-Memory, sonst AsyncStorage (Browser=localStorage,

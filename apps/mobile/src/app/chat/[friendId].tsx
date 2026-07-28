@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
   FlatList,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -15,6 +16,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '@/components/Avatar';
 import { EmptyState } from '@/components/EmptyState';
+import { UserActionsSheet } from '@/components/UserActionsSheet';
 import { fetchThread, sendMessage, subscribeThread } from '@/data/chat';
 import { getEventById } from '@/data/events';
 import { isSupabaseConfigured } from '@/data/supabase';
@@ -22,7 +24,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { appendToThread, readThread, type ChatMessage } from '@/lib/chat-store';
 import { formatDateTime } from '@/lib/format';
 import { friendById } from '@/lib/social';
-import { useTheme, type Theme } from '@/theme/theme';
+import { palette, useTheme, type Theme } from '@/theme/theme';
 
 /**
  * 1:1-Chat — Demo-Modus: Nachrichten liegen lokal (AsyncStorage, pro Freund).
@@ -51,6 +53,8 @@ export default function ChatScreen() {
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState('');
+  const [sendError, setSendError] = useState<string | null>(null);
+  const [actionsOpen, setActionsOpen] = useState(false);
   const listRef = useRef<FlatList<ChatMessage>>(null);
 
   // Hängt eine Nachricht an, ohne Duplikate (Realtime + optimistisch).
@@ -84,10 +88,18 @@ export default function ChatScreen() {
     const text = draft.trim();
     if (!text) return;
     setDraft('');
+    setSendError(null);
     if (isLive && myId) {
-      void sendMessage(myId, String(friendId), { text }).then((m) => {
-        if (m) appendUnique(m);
-      });
+      void sendMessage(myId, String(friendId), { text })
+        .then((m) => {
+          if (m) appendUnique(m);
+        })
+        .catch(() => {
+          // RLS lehnt ab (Freundschaft beendet / blockiert) oder Netz weg —
+          // Entwurf zurückgeben statt die Nachricht still zu verlieren.
+          setDraft(text);
+          setSendError('Senden fehlgeschlagen. Prüfe deine Verbindung — oder ihr seid nicht mehr verbunden.');
+        });
     } else {
       void appendToThread(String(friendId), { fromMe: true, text }).then(setMessages);
     }
@@ -124,6 +136,16 @@ export default function ChatScreen() {
             {isLive ? 'Live · Nachrichten in Echtzeit' : 'Demo-Chat · lokal gespeichert'}
           </Text>
         </View>
+        <Pressable
+          onPress={() => {
+            // Tastatur schließen, sonst liegt das Sheet über dem fokussierten Feld.
+            Keyboard.dismiss();
+            setActionsOpen(true);
+          }}
+          hitSlop={8}
+          accessibilityLabel={`Optionen zu ${friend.name}`}>
+          <Ionicons name="ellipsis-horizontal" size={22} color={t.colors.textPrimary} />
+        </Pressable>
       </View>
 
       <FlatList
@@ -164,6 +186,11 @@ export default function ChatScreen() {
         contentContainerStyle={[styles.listContent, messages.length === 0 && styles.emptyGrow]}
       />
 
+      {/* Sendefehler (Entwurf bleibt erhalten) */}
+      {sendError && (
+        <Text style={[styles.sendError, { color: palette.danger }]}>{sendError}</Text>
+      )}
+
       {/* Eingabe */}
       <View
         style={[
@@ -189,6 +216,15 @@ export default function ChatScreen() {
           <Ionicons name="arrow-up" size={20} color={draft.trim() ? '#fff' : t.colors.textMuted} />
         </Pressable>
       </View>
+
+      {/* Melden & Blockieren (App-Store-Pflicht bei Nutzer-Inhalten) */}
+      <UserActionsSheet
+        visible={actionsOpen}
+        onClose={() => setActionsOpen(false)}
+        userId={String(friendId)}
+        userName={friend.name}
+        onBlocked={() => router.replace('/friends')}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -260,6 +296,7 @@ const styles = StyleSheet.create({
   bubbleMe: { alignSelf: 'flex-end', borderBottomRightRadius: 4 },
   bubbleThem: { alignSelf: 'flex-start', borderBottomLeftRadius: 4, borderWidth: StyleSheet.hairlineWidth },
   bubbleText: { fontSize: 15.5, lineHeight: 21 },
+  sendError: { fontSize: 12.5, lineHeight: 17, paddingHorizontal: 16, paddingBottom: 6 },
   inputRow: {
     flexDirection: 'row',
     alignItems: 'center',

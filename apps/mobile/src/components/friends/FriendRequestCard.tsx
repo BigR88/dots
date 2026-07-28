@@ -9,6 +9,8 @@ interface Props {
   subtitle?: string;
   onAccept: () => void;
   onDecline: () => void;
+  /** Öffnet Melden & Blockieren (⋯) — Pflichtzugang bei fremden Anfragen. */
+  onMore?: () => void;
   accepting?: boolean;
   declining?: boolean;
 }
@@ -23,6 +25,7 @@ export function FriendRequestCard({
   subtitle = 'Möchte sich mit dir verbinden',
   onAccept,
   onDecline,
+  onMore,
   accepting,
   declining,
 }: Props) {
@@ -39,6 +42,11 @@ export function FriendRequestCard({
             {subtitle}
           </Text>
         </View>
+        {onMore && (
+          <Pressable onPress={onMore} hitSlop={8} accessibilityLabel={`Optionen zu ${name}`}>
+            <Ionicons name="ellipsis-horizontal" size={20} color={t.colors.textMuted} />
+          </Pressable>
+        )}
       </View>
 
       <View style={styles.actions}>

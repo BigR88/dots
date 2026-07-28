@@ -20,7 +20,7 @@ import { checkUsernameAvailable } from '@/data/profile';
 import { useAuth } from '@/hooks/use-auth';
 import { useMyProfile, useUpdateProfile } from '@/hooks/use-profile';
 import { normalizeUsername, suggestUsername, usernameError } from '@/lib/username';
-import { useTheme } from '@/theme/theme';
+import { palette, useTheme } from '@/theme/theme';
 
 const BIO_MAX = 160;
 
@@ -137,7 +137,7 @@ export default function EditProfileScreen() {
           {update.isPending ? (
             <ActivityIndicator size="small" color={t.accent} />
           ) : (
-            <Text style={[styles.save, { color: canSave ? t.accent : t.colors.textMuted }]}>Sichern</Text>
+            <Text style={[styles.save, { color: canSave ? t.accent : t.colors.textMuted }]}>Speichern</Text>
           )}
         </Pressable>
       </View>
@@ -190,7 +190,7 @@ export default function EditProfileScreen() {
         />
 
         {saveError ? (
-          <Text style={[styles.error, { color: '#FF3B5C' }]}>{saveError}</Text>
+          <Text style={[styles.error, { color: palette.danger }]}>{saveError}</Text>
         ) : null}
       </ScrollView>
     </KeyboardAvoidingView>

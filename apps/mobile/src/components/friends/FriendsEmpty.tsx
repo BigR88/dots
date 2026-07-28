@@ -61,7 +61,7 @@ const styles = StyleSheet.create({
   wrapCompact: { flexDirection: 'row', paddingVertical: 14, paddingHorizontal: 14, gap: 12 },
   iconTile: { width: 52, height: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   iconTileCompact: { width: 38, height: 38, borderRadius: 12 },
-  textCol: { flex: 0, alignItems: 'center', gap: 3 },
+  textCol: { alignSelf: 'stretch', alignItems: 'center', gap: 3 },
   textColCompact: { flex: 1, alignItems: 'flex-start' },
   title: { fontSize: 16, fontWeight: '800', textAlign: 'center', letterSpacing: -0.2 },
   titleCompact: { fontSize: 14.5, textAlign: 'left' },

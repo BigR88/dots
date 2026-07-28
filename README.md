@@ -1,16 +1,25 @@
 # dots
 
-Event-Discovery-App für Frankfurt am Main. Monorepo (npm workspaces).
+Event-Discovery-App für Frankfurt am Main — Karte, Events, Freunde, Chat.
+Monorepo (npm workspaces). Web-Demo: https://bigr88.github.io/dots
 
-> Stand: Phase 0 + 1 (Scaffold + Lese-MVP). Siehe [docs/dots_MVP_Blueprint.md](docs/dots_MVP_Blueprint.md).
+> Stand: Feature-komplettes MVP auf dem Weg in den App Store.
+> Der Launch-Fahrplan mit allen offenen Schritten steht in [APPSTORE.md](APPSTORE.md),
+> der Event-Import in [INGESTION.md](INGESTION.md).
 
 ## Struktur
 
 ```
-apps/mobile        Expo-App (React Native, Expo Router) — Liste, Detail, Karte-Platzhalter
-packages/shared    Geteilte Typen, Zod-Schemas, Konstanten, Design-Tokens
-supabase/          SQL-Migrationen (Schema §5) + seed.sql (Frankfurt-Events)
-docs/              Blueprint
+apps/mobile        Expo-App (React Native, Expo Router): Karte (Leaflet/CARTO),
+                   Events, Favoriten, Freunde + 1:1-Chat, Profil, Auth mit
+                   Gast-Modus, Rechtsseiten (/legal/*)
+apps/admin         dots Studio (Next.js): Event-Redaktion + KI-Import-Review
+packages/shared    Geteilte Typen, Fixtures, Design-Tokens
+supabase/          SQL-Migrationen 0001–0010 + seed.sql; setup_all.sql für
+                   frische Projekte (NICHT auf bestehender DB ausführen)
+docs/              Statischer Web-Export für GitHub Pages (veralteter Stand —
+                   das aktuelle Deployment läuft über die GitHub Action
+                   .github/workflows/deploy-pages.yml)
 ```
 
 ## Schnellstart (Mobile)
@@ -18,35 +27,23 @@ docs/              Blueprint
 ```bash
 npm install
 npm run mobile         # Expo Dev Server (iOS/Android/Web)
-# oder direkt im Browser:
-npm run mobile:web
+npm run mobile:web     # direkt im Browser
+npm run typecheck      # TypeScript über alle Workspaces
 ```
 
-Ohne konfiguriertes Supabase-Backend läuft die App gegen lokale **Fixtures**
-(`apps/mobile/src/data/fixtures.ts`) — dieselben Events wie in `supabase/seed.sql`,
-damit Liste + Detail sofort demonstrierbar sind.
+Ohne konfiguriertes Supabase-Backend läuft die App im **Demo-Modus** gegen
+lokale Fixtures (`packages/shared/src/fixtures.ts`) — ohne Login-Gate, mit
+Beispiel-Events und Demo-Freunden.
 
-## Supabase aktivieren (später)
+## Supabase (Live-Modus)
 
-1. Docker + Supabase CLI installieren **oder** ein Cloud-Projekt anlegen.
-2. Migrationen anwenden:
-   ```bash
-   supabase start                       # lokal (Docker)
-   supabase db reset                    # wendet migrations/ + seed.sql an
-   ```
-3. In `apps/mobile/.env` setzen:
-   ```
-   EXPO_PUBLIC_SUPABASE_URL=...
-   EXPO_PUBLIC_SUPABASE_ANON_KEY=...
-   ```
-   Sobald gesetzt, zieht die App echte Daten statt Fixtures.
+`apps/mobile/.env` nach dem Muster von `.env.example` füllen — dann zieht die
+App echte Daten und zeigt das Login-Gate (Dev-Bypass: `EXPO_PUBLIC_AUTH_DISABLED=1`,
+greift nur in Dev-Builds). Migrationen werden im Supabase-SQL-Editor in
+Nummern-Reihenfolge eingespielt; für komplett neue Projekte gibt es
+`supabase/setup_all.sql`.
 
-## Status der Roadmap
+## App-Store-Release
 
-- [x] Phase 0 — Monorepo, Expo-Skeleton, Schema, Design-Tokens
-- [x] Phase 1 — Liste + Zeit-Tabs + Filter-Chips + Detail (Fixtures/Supabase)
-- [ ] Phase 2 — Mapbox-Karte (Pins, Clustering, `events_near`)
-- [ ] Phase 3 — Filter-Sheet, Sortierung, Suche
-- [ ] Phase 4 — Next.js-Admin + Content-Workflow
-- [ ] Phase 5 — Auth + Favoriten
-- [ ] Phase 6 — KI-Import (FastAPI-Worker)
+Alles Weitere — EAS Build, TestFlight, Store-Listing, Rechtliches, offene
+Blocker — steht in [APPSTORE.md](APPSTORE.md).

@@ -5,9 +5,13 @@ import { PAGE_TITLE } from '@/theme/typography';
 import { GradientText } from '@/components/GradientText';
 
 interface Props {
+  /** Titel (Standard: „freunde."). */
+  title?: string;
   subtitle?: string;
   /** Kleine Statuszeile (z. B. Demo-Hinweis). */
   note?: string;
+  /** Optionaler Zurück-Button links (führt zum Hub). */
+  onBack?: () => void;
   /** Optionale Aktion oben rechts (z. B. „Freund:innen finden"). */
   onAction?: () => void;
   actionIcon?: string;
@@ -21,8 +25,10 @@ interface Props {
  * rechts ein dezenter runder Action-Button (z. B. Suche fokussieren).
  */
 export function FriendsHeader({
+  title = 'freunde.',
   subtitle = 'Bleib mit deinen Leuten verbunden',
   note,
+  onBack,
   onAction,
   actionIcon = 'person-add',
   actionLabel = 'Freund:innen finden',
@@ -31,8 +37,27 @@ export function FriendsHeader({
   const t = useTheme();
   return (
     <View style={styles.wrap}>
+      {onBack && (
+        <Pressable
+          onPress={onBack}
+          accessibilityLabel="Zurück"
+          hitSlop={8}
+          style={({ pressed }) => [
+            styles.action,
+            softShadow,
+            {
+              backgroundColor: t.colors.surface,
+              borderColor: t.colors.border,
+              opacity: pressed ? 0.8 : 1,
+              transform: [{ scale: pressed ? 0.95 : 1 }],
+            },
+          ]}>
+          <Ionicons name="chevron-back" size={20} color={t.colors.textPrimary} />
+        </Pressable>
+      )}
+
       <View style={{ flex: 1 }}>
-        <GradientText style={PAGE_TITLE}>freunde.</GradientText>
+        <GradientText style={PAGE_TITLE}>{title}</GradientText>
         {subtitle ? (
           <Text style={[styles.subtitle, { color: t.colors.textSecondary }]}>{subtitle}</Text>
         ) : null}

@@ -5,7 +5,6 @@ import { useEffect, useState } from 'react';
 import * as WebBrowser from 'expo-web-browser';
 import {
   ActivityIndicator,
-  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -24,12 +23,14 @@ import { GlassCard } from '@/components/GlassCard';
 import { InfoRow } from '@/components/InfoRow';
 import { MapToast } from '@/components/MapToast';
 import { PrimaryButton } from '@/components/PrimaryButton';
+import { RouteChooserSheet } from '@/components/RouteChooserSheet';
 import { ScreenBackground } from '@/components/ScreenBackground';
 import { sendMessage } from '@/data/chat';
 import { getEventById } from '@/data/events';
 import { logEventClick } from '@/data/social';
 import { isSupabaseConfigured } from '@/data/supabase';
 import { useAuth } from '@/hooks/use-auth';
+import { useRouteChooser } from '@/hooks/use-route-chooser';
 import { useToast } from '@/hooks/use-toast';
 import { appendToThread } from '@/lib/chat-store';
 import { hexA } from '@/lib/color';
@@ -56,6 +57,7 @@ export default function EventDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [showFriendPicker, setShowFriendPicker] = useState(false);
   const { toast, showToast } = useToast();
+  const { promptRoute, chooserProps } = useRouteChooser();
 
   const { data: event, isLoading } = useQuery({
     queryKey: ['event', id],
@@ -89,10 +91,7 @@ export default function EventDetailScreen() {
   const free = isFree(event);
   const cta = primaryCta(event);
   const openCta = () => WebBrowser.openBrowserAsync(cta.url);
-  const openMaps = () => {
-    const q = encodeURIComponent(`${event.venue?.name ?? ''} ${event.venue?.address ?? 'Frankfurt'}`);
-    Linking.openURL(`https://maps.apple.com/?q=${q}`);
-  };
+  const openMaps = () => promptRoute(event);
   const onShare = async () => {
     const outcome = await shareText(
       `${event.title} — ${formatDateTime(event.startAt)} · ${event.venue?.name ?? 'Frankfurt'} (via dots)`,
@@ -209,6 +208,8 @@ export default function EventDetailScreen() {
           }
         }}
       />
+
+      <RouteChooserSheet {...chooserProps} />
     </ScreenBackground>
   );
 }

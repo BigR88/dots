@@ -19,14 +19,34 @@ const DICT: Record<string, Entry> = {
 
   'account.editProfile': { de: 'Profil bearbeiten', en: 'Edit profile' },
   'account.editProfile.sub': {
-    de: 'Name, @username, Bio & Vibe',
-    en: 'Name, @username, bio & vibe',
+    de: 'Name, @username, Bio & Bereich',
+    en: 'Name, @username, bio & area',
   },
   'privacy.entry.sub': {
     de: 'Sichtbarkeit, Auffindbarkeit & Standort',
     en: 'Visibility, discoverability & location',
   },
   'account.signOut': { de: 'Abmelden', en: 'Sign out' },
+  'account.delete': { de: 'Konto löschen', en: 'Delete account' },
+  'account.signIn': { de: 'Anmelden oder registrieren', en: 'Sign in or sign up' },
+
+  'section.legal': { de: 'Rechtliches', en: 'Legal' },
+  'legal.privacy': { de: 'Datenschutzerklärung', en: 'Privacy policy' },
+  'legal.privacy.sub': { de: 'Welche Daten dots verarbeitet', en: 'What data dots processes' },
+  'legal.terms': { de: 'Nutzungsregeln', en: 'Community rules' },
+  'legal.terms.sub': { de: 'Fairer Umgang, Melden & Blockieren', en: 'Fair conduct, reporting & blocking' },
+  'legal.imprint': { de: 'Impressum', en: 'Imprint' },
+  'legal.imprint.sub': { de: 'Anbieterkennzeichnung', en: 'Provider identification' },
+  'account.delete.confirmTitle': {
+    de: 'Konto wirklich löschen?',
+    en: 'Really delete your account?',
+  },
+  'account.delete.confirmMessage': {
+    de: 'Dein Profil, deine Freundschaften, Nachrichten und Zusagen werden dauerhaft gelöscht. Das lässt sich nicht rückgängig machen.',
+    en: 'Your profile, friendships, messages and RSVPs will be permanently deleted. This cannot be undone.',
+  },
+  'account.delete.confirm': { de: 'Endgültig löschen', en: 'Delete permanently' },
+  'common.cancel': { de: 'Abbrechen', en: 'Cancel' },
 
   'priv.locationFriends': { de: 'Standort für Freunde', en: 'Location for friends' },
   'priv.locationFriends.sub': {
@@ -59,7 +79,7 @@ const DICT: Record<string, Entry> = {
   'theme.light': { de: 'Hell', en: 'Light' },
   'theme.dark': { de: 'Dunkel', en: 'Dark' },
   'theme.note': {
-    de: '„System" folgt der Einstellung deines Geräts.',
+    de: '„System“ folgt der Einstellung deines Geräts.',
     en: '“System” follows your device setting.',
   },
 
@@ -73,7 +93,7 @@ const DICT: Record<string, Entry> = {
 
   'tag.soon': { de: 'bald', en: 'soon' },
   'privacy.note': {
-    de: 'Mit „bald" markierte Optionen werden mit dem Server-Rollout durchgesetzt.',
+    de: 'Mit „bald“ markierte Optionen werden mit dem Server-Rollout durchgesetzt.',
     en: 'Options marked “soon” will take effect with the server rollout.',
   },
 };
