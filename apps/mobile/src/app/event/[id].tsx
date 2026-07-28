@@ -144,7 +144,15 @@ export default function EventDetailScreen() {
               {formatDateTime(event.startAt)}
               {event.endAt ? ` – ${formatDateTime(event.endAt)}` : ''}
             </InfoRow>
-            <InfoRow icon="location-outline" onPress={openMaps}>
+            <InfoRow
+              icon="location-outline"
+              onPress={openMaps}
+              trailing={
+                <View style={[styles.routeChip, { backgroundColor: hexA(t.accent, 0.12) }]}>
+                  <Ionicons name="navigate" size={13} color={t.accent} />
+                  <Text style={[styles.routeChipText, { color: t.accent }]}>Route</Text>
+                </View>
+              }>
               {event.venue?.name ?? 'Frankfurt am Main'}
               {event.venue?.address ? `, ${event.venue.address}` : ''}
             </InfoRow>
@@ -220,6 +228,15 @@ const styles = StyleSheet.create({
   pillRow: { flexDirection: 'row', gap: 8 },
   pill: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999 },
   pillText: { fontSize: 12.5, fontWeight: '800' },
+  routeChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+  },
+  routeChipText: { fontSize: 12.5, fontWeight: '800' },
   title: { fontSize: 27, fontWeight: '900', letterSpacing: -0.7, lineHeight: 32 },
   infoCard: { padding: 14, gap: 2 },
   desc: { fontSize: 15.5, lineHeight: 24, marginTop: 2 },

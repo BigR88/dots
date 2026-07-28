@@ -6,13 +6,15 @@ interface Props {
   icon: string;
   children: React.ReactNode;
   onPress?: () => void;
+  /** Optionales Element rechts (z. B. „Route"-Hinweis bei antippbarer Adresse). */
+  trailing?: React.ReactNode;
 }
 
 /**
  * Elegante Info-Zeile (Detailseite): Icon im weichen Kreis + Text. Optional
- * antippbar (z. B. Adresse → Karte).
+ * antippbar (z. B. Adresse → Karte) mit rechtsbündigem Hinweis (`trailing`).
  */
-export function InfoRow({ icon, children, onPress }: Props) {
+export function InfoRow({ icon, children, onPress, trailing }: Props) {
   const t = useTheme();
   const body = (
     <View style={styles.row}>
@@ -20,6 +22,7 @@ export function InfoRow({ icon, children, onPress }: Props) {
         <Ionicons name={icon as never} size={17} color={t.accent} />
       </View>
       <Text style={[styles.text, { color: t.colors.textPrimary }]}>{children}</Text>
+      {trailing ? <View style={styles.trailing}>{trailing}</View> : null}
     </View>
   );
   if (!onPress) return body;
@@ -33,5 +36,6 @@ export function InfoRow({ icon, children, onPress }: Props) {
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 6 },
   iconWrap: { width: 34, height: 34, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
-  text: { fontSize: 15, flexShrink: 1, lineHeight: 20, fontWeight: '500' },
+  text: { fontSize: 15, flex: 1, lineHeight: 20, fontWeight: '500' },
+  trailing: { marginLeft: 8 },
 });

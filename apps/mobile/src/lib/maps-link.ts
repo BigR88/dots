@@ -4,27 +4,28 @@ import type { DotsEvent } from '@dots/shared';
 /**
  * Frontend-Navigation zur Event-Location über Maps-URLs (kein Backend).
  * Der Nutzer wählt den Anbieter (Apple Karten / Google Maps) selbst — siehe
- * RouteChooserSheet. Primär per Koordinaten, Fallback per Location-Namen.
- * Web öffnet einen neuen Tab, native/WebView öffnet system-/app-nah via Linking.
+ * RouteChooserSheet. Es gibt IMMER ein Ziel: Koordinaten (bevorzugt), sonst
+ * Suche per Venue/Adresse/Titel, notfalls „Frankfurt am Main" — so ist die
+ * Route zu jedem Event verfügbar. Web öffnet einen neuen Tab, native/WebView
+ * öffnet system-/app-nah via Linking.
  */
 
 export type MapsProvider = 'apple' | 'google';
 
-type RouteEvent = Pick<DotsEvent, 'location' | 'venue' | 'addressOverride'>;
+type RouteEvent = Pick<DotsEvent, 'location' | 'venue' | 'addressOverride' | 'title'>;
 
-/** Ziel als Koordinaten (bevorzugt) oder – Fallback – als Suchtext. */
-function destination(event: RouteEvent): { lat: number; lon: number } | { query: string } | null {
+/** Ziel als Koordinaten (bevorzugt) oder – Fallback – als Suchtext. Immer gesetzt. */
+function destination(event: RouteEvent): { lat: number; lon: number } | { query: string } {
   const loc = event.location ?? event.venue?.location ?? null;
   if (loc) return { lat: loc.lat, lon: loc.lon };
-  const name = event.venue?.name ?? event.addressOverride ?? null;
-  if (name) return { query: `${name}, Frankfurt am Main` };
-  return null;
+  // Ohne Koordinaten: sinnvollste Suche zusammenbauen (immer ein Ergebnis).
+  const name = event.venue?.name ?? event.addressOverride ?? event.title ?? null;
+  return { query: name ? `${name}, Frankfurt am Main` : 'Frankfurt am Main' };
 }
 
-/** Baut die Routen-/Such-URL für den gewählten Anbieter. */
-export function buildRouteUrl(event: RouteEvent, provider: MapsProvider): string | null {
+/** Baut die Routen-/Such-URL für den gewählten Anbieter (immer eine URL). */
+export function buildRouteUrl(event: RouteEvent, provider: MapsProvider): string {
   const dest = destination(event);
-  if (!dest) return null;
 
   if (provider === 'apple') {
     // `daddr` = Zieladresse → Apple Karten öffnet direkt die Wegbeschreibung.
@@ -37,15 +38,14 @@ export function buildRouteUrl(event: RouteEvent, provider: MapsProvider): string
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(dest.query)}`;
 }
 
-/** Gibt es genug Daten, um eine Route zu öffnen? (Button sonst ausblenden.) */
-export function canOpenRoute(event: RouteEvent): boolean {
-  return destination(event) != null;
+/** Route ist immer verfügbar — die Funktion bleibt für Aufrufer erhalten. */
+export function canOpenRoute(_event: RouteEvent): boolean {
+  return true;
 }
 
 /** Öffnet die Route beim gewählten Anbieter. */
 export async function openRouteWith(event: RouteEvent, provider: MapsProvider): Promise<void> {
   const url = buildRouteUrl(event, provider);
-  if (!url) return;
   try {
     await Linking.openURL(url);
   } catch {

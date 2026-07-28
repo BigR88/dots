@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react';
 import type { DotsEvent } from '@dots/shared';
 import { type MapsProvider, openRouteWith } from '@/lib/maps-link';
 
-type RouteEvent = Pick<DotsEvent, 'location' | 'venue' | 'addressOverride'>;
+type RouteEvent = Pick<DotsEvent, 'location' | 'venue' | 'addressOverride' | 'title'>;
 
 /**
  * State-Logik für die Anbieter-Auswahl (Apple Karten / Google Maps) vor dem

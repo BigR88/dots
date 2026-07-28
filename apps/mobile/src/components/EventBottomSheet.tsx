@@ -17,7 +17,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { DotsEvent, GeoPoint } from '@dots/shared';
 import { formatDay, formatPrice, formatTime } from '@/lib/format';
 import { displayTimeStatus } from '@/lib/event-time';
-import { canOpenRoute } from '@/lib/maps-link';
 import type { VenueGroup } from '@/lib/venues';
 import { useRouteChooser } from '@/hooks/use-route-chooser';
 import { useTheme } from '@/theme/theme';
@@ -153,7 +152,6 @@ function SingleEvent({
 }) {
   const t = useTheme();
   const color = event.category?.color ?? t.accent;
-  const showRoute = canOpenRoute(event);
 
   return (
     <View style={styles.body}>
@@ -223,19 +221,17 @@ function SingleEvent({
           )}
         </Pressable>
 
-        {showRoute ? (
-          <Pressable
-            onPress={() => onRoute(event)}
-            accessibilityLabel="Route öffnen"
-            style={({ pressed }) => [
-              styles.routeBtn,
-              { backgroundColor: t.colors.surfaceElevated, borderColor: t.colors.border },
-              pressed && { opacity: 0.7 },
-            ]}>
-            <Ionicons name="navigate" size={17} color={t.colors.textPrimary} />
-            <Text style={[styles.routeText, { color: t.colors.textPrimary }]}>Route</Text>
-          </Pressable>
-        ) : null}
+        <Pressable
+          onPress={() => onRoute(event)}
+          accessibilityLabel="Route öffnen"
+          style={({ pressed }) => [
+            styles.routeBtn,
+            { backgroundColor: t.colors.surfaceElevated, borderColor: t.colors.border },
+            pressed && { opacity: 0.7 },
+          ]}>
+          <Ionicons name="navigate" size={17} color={t.colors.textPrimary} />
+          <Text style={[styles.routeText, { color: t.colors.textPrimary }]}>Route</Text>
+        </Pressable>
       </View>
     </View>
   );
